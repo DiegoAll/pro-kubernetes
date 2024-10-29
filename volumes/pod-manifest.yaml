@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: poctest
+spec:
+  containers:
+    - name: poctest 
+      image: ghcr.io/raesene/cve-2022-23648-poc:v1 
+      command: ["/bin/bash", "-c", "--"]
+      args: [ "while true; do sleep 30; done" ]
+
+# Obtained from https://github.com/raesene/CVE-2022-23648-POC/

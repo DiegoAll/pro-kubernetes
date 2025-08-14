@@ -67,3 +67,6 @@ En conclusión, en Kubernetes, es mejor configurar volúmenes en el manifiesto, 
 
 
 PENDIENTE TERMINAL DE WHATSAPP
+
+
+

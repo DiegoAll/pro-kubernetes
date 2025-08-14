@@ -1,6 +1,8 @@
 # https://www.youtube.com/watch?v=X_IK0GBbBTw
 # How to Create GKE Cluster Using TERRAFORM? (Google Kubernetes Engine & Workload Identity)
 
+# https://antonputra.com/GCP/gke/
+
 
 provider "google" {
     project = "devops-v4"

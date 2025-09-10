@@ -26,11 +26,17 @@ Pods
     kubectl exec -it podtest -- sh
 
 
+    kubectl logs -f doscont -c cont1
+    kubectl logs -f doscont -c cont2
+    kubectl logs -f doscont --all-containers=true
+
+
+Deployments
+
     kubect apply -f deploymentName.yml
     kubectl delete -f deploymentName.yml
 
 
-Deployments
 
 
 

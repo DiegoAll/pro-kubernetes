@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: rs-test
+  labels:
+    app: rs-test
+    # tier: frontend
+spec:
+  # modifica las réplicas según tu caso de uso
+  replicas: 3
+  selector:
+    matchLabels:
+      # tier: frontend
+      app: pod-label
+  template:
+    metadata:
+      labels:
+        # tier: frontend
+        app: pod-label
+    spec:
+      containers:
+      - name: rep-nginx
+        image: nginx:alpine

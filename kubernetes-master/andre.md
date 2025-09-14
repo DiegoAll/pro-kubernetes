@@ -154,22 +154,182 @@ Para levantar un servidor http con un modulo de python
 
 
 
-
 ### 36. Solución: Evita utilizar el mismo puerto en los contenedores de un Pod
+
+    kubectl exec -ti doscont -c cont1 -- sh
+
+    kubectl describe pod doscont (Obtener nombres de contenedores del pod)
+
 
 
 ### 37. Labels y Pods
 
+Por ejemplo yo tengo 3 pods que son de desarrollo, 3 pods que son de stagging y 3 pods que son de production.
+
+¿Como hago para diferenciar estos pods? Una opcion podria ser por labels.
+
+Los labels son basicamente arbitrarios, se pueden definir los labels que se necesiten, por ejemplo: nombre: apellido: o cualquiera el mas comun es app: 
+
+
+    kubectl apply -f podLabels.yaml
+
+    kubectl get pods -l app=backend
+    kubectl get pods -l app=front
+    kubectl get pods -l env=dev
+
+
+- Filtrar para reducir el output en la linea de comandos
+- Para que objetos de mas alto nivel como un replicaset o un deployment puedan administrar los pods. (Estos objetos solo conocen a los pods por labels)
 
 
 ### 38. Problemas con los pods
 
+- No se recuperan solos
+- Si se requieren minimo 2 replicas de mi pod (¿Como garantizo esto?)
+- Garantizar la minima replica que son 2.
+- Los pods no pueden actualizarse a si mismos (Ej. Recursos, comando,)
+No puedo actualizarlo desde el pod mismo, alguien externo debe hacer esa actualizacion sobre el pod para que sea valida.
+
+Utilizar objetos mas altos para administrar los pods y asi aprovechar estas caracteristicas de replicas y de self healing que nos ofrecen estos objetos de kubernetes.
 
 
 ## Section 7: ReplicaSets - Aprende a garantizar replicas en tus Pods
 
+### 39. ¿Que es Replicaset?
+
+Por que deberiamos considerar un replicaset sobre un pod.
+Replicaset (RS) crea pods. 
+
+Se encarga de crear un pod con ese template.
+Al yo decirle que quiero 2 replicas, va a crear 1 pod y va a crear otro pod a partir del template.
+Si por alguna extraña razon algun pod se muere, el replicaset levanta otro con las mismas caracteristicas para garantizar que el numero actual de pods es igual al numero que el debe mantener. 
+
+¿Como hace el replicaset para mantenerlos y diferenciarlos de otros pods?
+
+Los pods deben tener un label, 
+
+Cuando el replicaset crea los pods y le asigna esos labels, el replicaset coloca algo llamado el owner reference (en la metadata del pod).El pod A va a tener como owner el replicaset1 y el pod B va a tneer como owner el replicaset1 tambien.
+
+El owner reference lo coloca el objeto de mas alto nivel. 
+
+Podria darse el caso de que un replicaset2 podria convertirse en **owner reference** de estos pods si coinciden los labels, esto fuera un caso de error de overlaping de labels. 
+
+Replicaset se encarga de mantener un numero n de replicas, del mismo pod ccorriendo en determinado tiempo
+
+
+
+### 40. Tu primer ReplicaSet
+
+> replicaset.yaml
+
+En los pods se tiene en apiVersion v1 y para replicaset apps/v1
+
+"Los labels son del replicaset, no son de los pods."
+
+selector: que labels vamos a utilizar para seleccionar los pods
+
+(Especificacion del replicaset)
+
+    spec:
+    # modifica las réplicas según tu caso de uso
+    replicas: 3
+    selector:
+        matchLabels:
+        tier: frontend
+
+Esta parte hace referencia a los pods
+
+    template:
+        metadata:
+        labels:
+            tier: frontend
+        spec:
+        containers:
+        - name: php-redis
+            image: gcr.io/google_samples/gb-frontend:v3
+
+
+### 41. Verifica el funcionamiento de un Replicaset
+
+
+diegoall@ph03nix:~/courses/pro-kubernetes/kubernetes-master/replicaSet$ kubectl apply -f replicaset.yaml 
+replicaset.apps/rs-test unchanged
+
+Este fue el comando que se ejecuto anteriormente, y si se dan cuenta dice que nada ha cambiado, es decir que es idempotente, significa que no habran modificaciones a menos de que sean necesarias. 
+
+A este punto todos los pods parecen estar bien, y al parecer replicaset no necesita tomar ninguna accion.
+
+    kubectl get pods -l app=pod-label
+
+    kubectl get rs
+
+
+Se puede eliminar un pod y el replicaset vuelve y lo levanta.
+
+        kubectl delete pod rs-fsdjf
+
+Si se cambia el valor de replicas en el manifeisto se actualizan automaticamente.
+
+
+### 42. Owner References - Entiende como RS se relaciona con los Pods
+
+    kubectl describe rs rs-test
+
+    kubectl get pods rs-test-gv6pv -o yaml
+
+
+    ownerReferences:
+    - apiVersion: apps/v1
+        blockOwnerDeletion: true
+        controller: true
+        kind: ReplicaSet
+        name: rs-test
+        uid: 3b558796-3846-4e32-993c-144b46db2cc9
+
+Este es el dueño del pod, con ese nombre y uuid.
+
+Nadie es dueño del replicaset aun.
+
+El replicaset siempre esta buscando los pods con el label que se haya colocado en el selector y va a tomar esos pods solamente si esos pods no tienen un owner definido. Si los pods no tienen un owner definido entonces el replicaset los hereda. Sino existe un pod con ese label, entonces el replicaset, los crea y adicionalmente los vuelve suyos, es decir les coloca esa metadata y les dice que 
+el replicaset x es el dueño de esos pods. 
+
+
+### 43. Adopcion de Pods desde ReplicaSet - !Evitar usar pods planos!
+
+Como un replicaset puede heredar pods que no haya creado pero que hagan match con el selector que definimos.
+
+
+
+
+
+### 44. Problemas de ReplicaSet
+
+
 
 ## Section 8: Deployments - Aprende a hacer un Rollout & Rollbacks
+
+
+### 45. ¿Que es un Deployent?
+
+
+### 46. Tu primer Deployment
+
+
+### 47. Owner References - Deployment, ReplicaSet y Pods
+
+
+### 48. Rolling updates - Actualiza tu version de tu aplicacion
+
+
+### 49. Historico y revisiones de despliegues
+
+
+
+### 50. Change-Cause -¿Cambiaste algo?
+
+
+### 51.  Roll back - Si algo salio mal, !regresa a la version anterior!
+
 
 
 ## Section 9: Service & Endpoints - Kuberntes Service Discovery

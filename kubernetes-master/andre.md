@@ -298,6 +298,35 @@ el replicaset x es el dueño de esos pods.
 
 Como un replicaset puede heredar pods que no haya creado pero que hagan match con el selector que definimos.
 
+Se crearan unos pods externos que no creo un replicaset y luego se les va a colocar unos labels. Esos pods como se crearon manualmente (ningun objeto los creo), significa que no tienen owner reference. 
+
+POr lo tanto si yo creo un replicaset y los dos pods ya estan creados, y los labels son los mismos, el replicaset los va a adoptar, por que se estan cumpliendo las condiciones que se necesitan. 
+POr eso no en conveniente crear pods planos, siempre deben ser creados por objetos de mayor nivel.
+
+diegoall@ph03nix:~/courses/pro-kubernetes$ kubectl run --generator=run-pod/v1 podtest5 --image=nginx:alpine
+error: unknown flag: --generator
+See 'kubectl run --help' for usage.
+
+**kubectl run ya no crea Deployments como antes, solo crea Pods. El flag --generator ya no existe.**
+
+    kubectl run podtest5 --image=nginx:alpine
+    kubectl run podtest6 --image=nginx:alpine
+
+Estos pods no tienen labels, 
+
+    kubectl describe pod podtest5
+
+Solo tiene el label por defecto que coloca k8s
+
+    Labels:           run=podtest5
+
+**¿Como colocarle un label a un pod que ya esta corriendo?**
+
+    diegoall@ph03nix:~/courses/pro-kubernetes$ kubectl label pods podtest5 app=pod-label
+    pod/podtest5 labeled
+
+Al etiquetar podtest5 y podtest6 con el label del ReplicaSet, les dijiste “ahora ustedes pertenecen a este ReplicaSet”. Kubernetes entonces los eliminó para que el ReplicaSet siga manejando solo sus propios pods administrados.
+
 
 
 

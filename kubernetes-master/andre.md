@@ -325,14 +325,35 @@ Solo tiene el label por defecto que coloca k8s
     diegoall@ph03nix:~/courses/pro-kubernetes$ kubectl label pods podtest5 app=pod-label
     pod/podtest5 labeled
 
-Al etiquetar podtest5 y podtest6 con el label del ReplicaSet, les dijiste “ahora ustedes pertenecen a este ReplicaSet”. Kubernetes entonces los eliminó para que el ReplicaSet siga manejando solo sus propios pods administrados.
+Al etiquetar podtest5 y podtest6 con el label (pod-label) del ReplicaSet, les dijiste “ahora ustedes pertenecen a este ReplicaSet”. Kubernetes entonces los eliminó para que el ReplicaSet siga manejando solo sus propios pods administrados.
 
+pod-label
 
+kubectl label pods podtest5 app=pod-label
 
+!! NO FUNCIONO !! EN EL VIDEO SI VUELVE EL POD ACA DESAPARECE EL POD !!
+
+Es peligroso, por eso no se deben crear pods planos.
 
 
 ### 44. Problemas de ReplicaSet
 
+Hay un pequeño detalle. EL coenpto general es que debe mantener un numero n de replicas del mismo pod en todo tiempo. Replicaset es el encargado de crear nuevos pods, y de que funcione de forma declarativa.
+
+El replicaset solamente mira uno numero de pods deseados o esperados, que cumplan con ciertos labels. Y al momento de aplicar una nueva configuracion desde el manifiesto el numero de pods con los labels sigue siendo el mismo, por lo tanto el replicaset no toma ninguna acción. Y esto se traduce en que, 
+un replicaset no puede actualizar los pods para cambiar por ejemplo la imagen, configuraciones (del manifiesto), y eso es problematico por que 
+
+**Replicaset sirve para mantener el numero de replicas pero no para actualizar los pods.**
+
+Si se quiere actualizar la version de un pod en un replicaset no es posible
+(Al menos no es posible utilizando replicasets directamente)
+
+
+**¿Como podemos forzar la actualizacion de los pods?**
+
+Se puede eliminar algun pod del replicaset, y cuando vuelva a levantarse se evidencia que toma los cambios, pero el proceso no es el mas natural ni el mas sencillo posible. Imaginarse el escenario de un replicaset de mas de 1000 pods (eliminar los 1000 a mano para que se puedna actualizar).
+
+**"El deployment es el dueño del replicaset, y el replicaset es el dueño de los pods."**
 
 
 ## Section 8: Deployments - Aprende a hacer un Rollout & Rollbacks

@@ -361,31 +361,389 @@ Se puede eliminar algun pod del replicaset, y cuando vuelva a levantarse se evid
 
 ### 45. ¿Que es un Deployent?
 
+Como es que un deployment nos ayuda a solucionar este problema de actualizacion de pods en un replicaset.
+
+Cuando yo creo un deployment tengo que especificar un template para el replicaset. Es decir que al crear un deployment este va a crear un replicaset, y en el replicaset se dice que pod y cuantos se quieren. Lo que significa que se van a creas por a consecuencia del replicaset que se creo.
+
+MaxAvailable: cuantos pods yo voy a permitir que mueran. 25% por defecto en kubernetes
+
+Max Surge: relacionado con rolling update strategy
+
+Pendiente
+
 
 ### 46. Tu primer Deployment
+
+**Cuando se define un Deployment, en realidad se está definiendo un controlador de más alto nivel que se encarga de manejar un ReplicaSet, y este a su vez se encarga de manejar los Pods.**
+
+Parte Deployment
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+    name: deployment-test
+    labels:
+        app: front
+    spec:
+    replicas: 3
+    selector:
+        matchLabels:
+        app: front
+
+Parte Replicaset
+
+    replicas: 3
+    selector:
+        matchLabels:
+        app: front
+
+Parte Pod:
+
+    template:
+        metadata:
+        labels:
+            app: front
+        spec:
+        containers:
+        - name: nginx
+            image: nginx:alpine
+
+
+
+**Nota:** Recordar que el deployment se compone de 3 partes:
+
+    kubectl get deployment --show-labels
+
+    kubectl rollout status deployment deployment-test
+    deployment "deployment-test" successfully rolled out
+
+
+Muestra si la actualización (rollout) del Deployment terminó correctamente o si aún está en proceso.
+
+Asi se crea y despliega un deployment en kubernetes.
+Similar al replicaset pero con la diferencia que el deployment brinda la opcion de actualizar los pods.
 
 
 ### 47. Owner References - Deployment, ReplicaSet y Pods
 
+Se puede ver el deployment:
+
+    kubectl get deployment
+    NAME              READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment-test   3/3     3            3           20h
+
+Efectivamente se tiene un replicaset con el nombre del deployment
+
+    kubectl get rs
+    NAME                        DESIRED   CURRENT   READY   AGE
+    deployment-test-84b6b84fb   3         3         3       20h
+
+Se pueden ver los pods con el nombre del deployment
+
+    kubectl get pods --show-labels
+    NAME                              READY   STATUS    RESTARTS       AGE    LABELS
+    deployment-test-84b6b84fb-2q87g   1/1     Running   0              20h    app=front,pod-template-hash=84b6b84fb
+    deployment-test-84b6b84fb-jj8t5   1/1     Running   0              20h    app=front,pod-template-hash=84b6b84fb
+    deployment-test-84b6b84fb-khvg9   1/1     Running   0              20h    app=front,pod-template-hash=84b6b84fb
+
+
+Todos tienen los mismos labels:
+
+    kubectl get deployment --show-labels
+    NAME              READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+    deployment-test   3/3     3            3           20h   app=front
+    
+    kubectl get rs --show-labels
+    NAME                        DESIRED   CURRENT   READY   AGE    LABELS
+    deployment-test-84b6b84fb   3         3         3       20h    app=front,pod-template-hash=84b6b84fb
+    rs-test                     3         3         3       4d6h   app=rs-test
+    
+    kubectl get pods --show-labels
+    NAME                              READY   STATUS    RESTARTS       AGE    LABELS
+    deployment-test-84b6b84fb-2q87g   1/1     Running   0              20h    app=front,pod-template-hash=84b6b84fb
+    deployment-test-84b6b84fb-jj8t5   1/1     Running   0              20h    app=front,pod-template-hash=84b6b84fb
+    deployment-test-84b6b84fb-khvg9   1/1     Running   0              20h    app=front,pod-template-hash=84b6b84fb
+
+pod-template-hash=84b6b84fb : Kubernetes utiliza internamente para garantizar que el replicaset tambien sepa cuales son sus pods, debido a que lo creo un deployment.
+
+    kubectl get replicaset deployment-test-84b6b84fb -o yaml
+
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Deployment
+    name: deployment-test
+    uid: b38c7e70-d905-48e8-ae99-5e3fc8d60158
+
+El dueño de este replicaset es el deployment relacionado.
+
+El deployment se va a encargar de modificar el replicaset segun sea necesario.
+
+
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: deployment-test-84b6b84fb
+    uid: 39556943-8da5-4504-a694-5ca8ea4522db
+
+El dueño de los pods es el replicaset relacionado.
+
 
 ### 48. Rolling updates - Actualiza tu version de tu aplicacion
 
+Como actualizar un deployment para que consecuentemente se actualicen nuestros pods.
+
+Se va a actualizar el deployment para que ahora utilice la imagen de nginx y no la de nginx-alpine.
+
+    kubectl apply -f deployment.yaml 
+    deployment.apps/deployment-test configured
+
+    kubectl rollout status deployment deployment-test
+    Waiting for deployment "deployment-test" rollout to finish: 1 old replicas are pending termination...
+    Waiting for deployment "deployment-test" rollout to finish: 1 old replicas are pending termination...
+    deployment "deployment-test" successfully rolled out
+
+
+**¿Como kubernetes llevo a cabo este deployment?**
+
+    kubectl describe deployment deployment-test
+
+    Events:
+    Type    Reason             Age                    From                   Message
+    ----    ------             ----                   ----                   -------
+    Normal  ScalingReplicaSet  8m24s                  deployment-controller  Scaled up replica set deployment-test-5d45fd875f to 1
+    Normal  ScalingReplicaSet  8m23s                  deployment-controller  Scaled down replica set deployment-test-84b6b84fb to 2 from 3
+    Normal  ScalingReplicaSet  8m23s                  deployment-controller  Scaled up replica set deployment-test-5d45fd875f to 2 from 1
+    Normal  ScalingReplicaSet  8m22s                  deployment-controller  Scaled down replica set deployment-test-84b6b84fb to 1 from 2
+    Normal  ScalingReplicaSet  8m22s                  deployment-controller  Scaled up replica set deployment-test-5d45fd875f to 3 from 2
+    Normal  ScalingReplicaSet  8m21s                  deployment-controller  Scaled down replica set deployment-test-84b6b84fb to 0 from 1
+    Normal  ScalingReplicaSet  4m45s                  deployment-controller  Scaled up replica set deployment-test-84b6b84fb to 1 from 0
+    Normal  ScalingReplicaSet  4m44s                  deployment-controller  Scaled down replica set deployment-test-5d45fd875f to 2 from 3
+    Normal  ScalingReplicaSet  4m44s                  deployment-controller  Scaled up replica set deployment-test-84b6b84fb to 2 from 1
+    Normal  ScalingReplicaSet  4m42s (x3 over 4m43s)  deployment-controller  (combined from similar events): Scaled down replica set deployment-test-5d45fd875f to 0 from 1
+
+
 
 ### 49. Historico y revisiones de despliegues
+
+Cada que se hace un deployment y un rollout esto crea un replicaset y al final estos replicaset se van a ir acumulando.
+
+    kubectl get rs -l app=front
+
+Para ver cuanta hostoria (revisiones) nos deja kubernetes tener.
+
+kubectl get rs -l app=front
+NAME                         DESIRED   CURRENT   READY   AGE
+deployment-test-5d45fd875f   0         0         0       23m
+deployment-test-84b6b84fb    3         3         3       20h
+
+Con esto se ven las revisiones o rollouts que se han ejecutado
+
+    kubectl rollout history deployment deployment-test
+    deployment.apps/deployment-test 
+    REVISION  CHANGE-CAUSE
+    2         <none>
+    3         <none>
+
+Kubernetes se de cuenta que hay algo distinto en el template y sea forzado a actualizar el deployment. 
+
+Ahora se puede ver que aparece una revision nueva despues de actualizar el deployment:
+
+    kubectl apply -f deployment.yaml 
+    deployment.apps/deployment-test configured
+
+    kubectl rollout history deployment deployment-test
+    deployment.apps/deployment-test 
+    REVISION  CHANGE-CAUSE
+    2         <none>
+    3         <none>
+    4         <none>
+
+Ahora se puede evidenciar que aparece un nuevo replicaset
+
+    kubectl get replicaset
+    NAME                         DESIRED   CURRENT   READY   AGE
+    deployment-test-5d45fd875f   0         0         0       31m
+    deployment-test-84b6b84fb    0         0         0       21h
+    deployment-test-f6bb7bb78    3         3         3       70s
+
+El rollout termino, todos los pods de este replicaset fueron actualizados de manera correcta y los otros dos anteriores estan en cero.
+
+la idea de mantener estas replicasets con los parametros en 0es en caso de que yo quiera volver a una version anterior de estos replicasets, que puedo controlar aqui? 
+
+Se tiene la REVISION 2,3,4 y se puede volver a cualquiera de ellas si asi se quisiera.
+
+
+**HistoryLimit**
+
+Un Deployment siempre va a mantener por defecto un historico de 10 replicasets, a menos de que se modifique este valor.
+
+Se coloca en el deployment en spec,     revisionHistoryLimit: 1
+
+Para validar que se pueda cambiar el limite en el historial. Si funciona, redujo los history que se tienen.
+
+kubectl apply -f deployment.yaml 
+deployment.apps/deployment-test configured
+
+kubectl rollout history deployment deployment-test
+deployment.apps/deployment-test 
+REVISION  CHANGE-CAUSE
+3         <none>
+4         <none>
+
+Es decir, cuantos replicasets quieren guardar para poder volver a esas versiones en caso de ser necesario.
 
 
 
 ### 50. Change-Cause -¿Cambiaste algo?
 
+No se especifico cual es la razon o la causa de este deployment, por eso aparece <none>
+
+REVISION  CHANGE-CAUSE
+3         <none>
+
+Hay 3 formas para esto
+
+1. Utilizando el flag --record
+
+        kubectl rollout history deployment deployment-test
+        deployment.apps/deployment-test 
+        REVISION  CHANGE-CAUSE
+        4         <none>
+        5         kubectl apply --filename=deployment.yaml --record=true
+
+2. Crear una anotacion en el deployment
+
+La Annotation es metadata que kubernetes utiliza para otras cosas.
+En este caso esta utilizando la anotacion para saber cual es la causa del deployment.
+
+Esta anotacion tiene que ir en el template, 
+
+    kubectl apply -f deployment.yaml  (Ya no es necesario el --record, se coloca desde el manifiesto)
+
+
+Se pueden ver que cambios ocurrieron en una revision:
+
+Este es el estado de este pod en esta revision.
+
+    kubectl rollout history deployment deployment-test --revision=6
+    deployment.apps/deployment-test with revision #6
+    Pod Template:
+    Labels:       app=front
+            pod-template-hash=b447c675
+    Annotations:  kubernetes.io/change-cause: Changes port to 110
+    Containers:
+    nginx:
+        Image:      nginx:alpine
+        Port:       110/TCP
+        Host Port:  0/TCP
+        Environment:        <none>
+        Mounts:     <none>
+    Volumes:      <none>
+    Node-Selectors:       <none>
+    Tolerations:  <none>
+
+Se puede valiar que cambios se tenian en dicha version y quizas de ser necesario retornar a esta version en el tiempo.
+
 
 ### 51.  Roll back - Si algo salio mal, !regresa a la version anterior!
 
+Un rollback se puede hacer por muchas razones, el depsliegue de una neuva version funcione bien , pero que la aplicacion misma tenga errores y no esta funcionandno como se espera que funcione.
+
+Hay escearios en las que el deployment puede quedarse pegado, puede quedarse con problemas, puede volverse inestable debido a una mala configuracion, algun problema de red, muchas cosas.
+
+
+cambio de imagen por test-fake
+
+deployment-test-dfd6bdd8-ln4fc   0/1     ErrImagePull
+
+    kubectl rollout history deployment deployment-test --revision=7
+    deployment.apps/deployment-test with revision #7
+    Pod Template:
+    Labels:       app=front
+            pod-template-hash=dfd6bdd8
+    Annotations:  kubernetes.io/change-cause: Changes port to 110
+    Containers:
+    nginx:
+        Image:      test-fake
+        Port:       110/TCP
+        Host Port:  0/TCP
+        Environment:        <none>
+        Mounts:     <none>
+    Volumes:      <none>
+    Node-Selectors:       <none>
+    Tolerations:  <none>
+
+Ahora se hara el rollout previa al error con la imagen
+
+    kubectl rollout undo deployment deployment-test --to-revision=6
+    deployment.apps/deployment-test rolled back
+
+Se puede corroborar que se ejecuto con exito el rollback
+
+    kubectl rollout status deployment deployment-test
 
 
 ## Section 9: Service & Endpoints - Kuberntes Service Discovery
 
 
+### 52. ¿Que es un servicio?
+
+Si 2 pods logran manejar el trafico de 100 request por segundo, se puede decir que 4 pods pueden manejar el trafico de 200 request /s. En esencia esta es la idea de escalar horizontalmente para ser capaces de manejar mass trafico.
+
+**¿Como accedemos a todos estos pods en un solo punto?**
+
+Como hacer que un usuario consulte este punto y peuda obtener la informacion de estos pods?
+
+
+Para esto en kubernetes existe un objeto que se llama servicio, lo que hace es observar los pods con cierto label.
+
+Este servicio actuara coo balancerador sobre los pods que el este observando.
+
+Si se crea un pod por fuera de un replicaset o un deployment y se le coloca un label por ejemplo app=web, el servicio tambien lo va a observar a el.
+
+Al servicio no le importa si esta deontro de un reployment o replicaset, solo le interesa el label.
+
+
+### 53. ¿Que son y para que sirven los endpoints?
+
+Consultando la IP del servicio siempre se va apoder acceder a los pods que el servicio este observando.
+
+Cuando un request llega al servicio, el servicio necesaita enviarselo a alguien, y ese alguien van a ser lods pods. POr lo tanto en este servicio se creara un deployment para que responsa los request cuando alguien solicite la ip del servicio.
+
+
+
+### 54. Crea tu primer servicio
+
+    kubectl apply -f service/svc.yaml
+    deployment.apps/deployment-test-service created
+    service/my-service created
+
+
+### 55. Describe tu servicio y encuentra información util
+
+
+### 56. Pods & Endpoints
+
+
+### 57. Servicios y DNS
+
+
+### 58. Servicio de tipo ClusterIP
+
+
+
+### 59. Servicio de tipo NodePort
+
+
+### 60. Servicio de tipo Load Balancer 
+
+
 ## Section 10: Golang, Javascript y Kubernetes 
+
 
 
 ## Section 11: Namespaces & Context - Organizar y aislar los recursos

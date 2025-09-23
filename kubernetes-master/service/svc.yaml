@@ -31,4 +31,4 @@ spec:
   ports:
     - protocol: TCP
       port: 8080
-      targetPort: 80  # que puerto dentro del contneedor o del pod voy a consumir
+      targetPort: 80  # que puerto dentro del contenedor o del pod voy a consumir

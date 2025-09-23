@@ -723,10 +723,53 @@ Cuando un request llega al servicio, el servicio necesaita enviarselo a alguien,
     service/my-service created
 
 
+Cad apod tiene una IP, y al tener una Ip tiene un servicio corriendo.
+
+Al servicio se le coloca el puerto 8080.
+
+Si yo soy un usuario y le solicito algo a la IP del servicio 8080, lo que va a hacer el servicio es consultar el endpoint y basado en el endpoint elegir una de las ips validas. Enviar la solicitud a la IP, por el puerto que se definio previamente en este caso el 80.
+
+De esta manera la puerta de entrada o el entrypoint de el servicio es la IP:PuertoDefinidoenElManifiesto y luego esto se va a enrutar al puerto del contenedor (Cada uno de los pods).
+
+
+
 ### 55. Describe tu servicio y encuentra información util
+
+    kubectl get svc
+    kubectl get svc -l app=front
+
+
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+my-service   ClusterIP   10.101.86.254   <none>        8080/TCP   4d16h
+
+**Por defecto en kubernetes si no se especifica ningun tipo de servicio va a ser ClusterIP**
+
+Es una direccion IP virtual por que no esta asociada a ningun tipo de MAC fisica, por lo tanto es una IP virtual que se va a utilizar como punto de acceso, para nuestros pods, 
+
+    diegoall@ph03nix:~/courses/pro-kubernetes/kubernetes-master/service$ kubectl describe svc svc my-service
+    Name:              my-service
+    Namespace:         default
+    Labels:            app=front
+    Annotations:       <none>
+    Selector:          app=front
+    Type:              ClusterIP
+    IP Family Policy:  SingleStack
+    IP Families:       IPv4
+    IP:                10.101.86.254
+    IPs:               10.101.86.254
+    Port:              <unset>  8080/TCP
+    TargetPort:        80/TCP
+    Endpoints:         10.244.0.102:80,10.244.0.87:80,10.244.0.88:80 + 4 more...
+    Session Affinity:  None
+    Events:            <none>
+    Error from server (NotFound): services "svc" not found
+
+**Este servicio es el punto de entrada para acceder a nuestros pods.**
 
 
 ### 56. Pods & Endpoints
+
+
 
 
 ### 57. Servicios y DNS

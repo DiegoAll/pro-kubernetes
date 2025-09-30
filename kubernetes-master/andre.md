@@ -1,4 +1,19 @@
+# Kubernetes de principiante a experto
 
+## Section 1: Introduction
+
+
+## Section 2: Arquitectura de Kubernetes - !Conoce todos los secretos!
+
+
+## Section 3: Instalación de Minikube - !Un cluster local, poderoso y muy facil de usar!
+
+
+
+## Section 4: Recursos del curso
+
+
+## Section 5: Pods en Kubernetes vs Contenedores de Docker
 
 
 ## Section 6: Explorando pods
@@ -769,27 +784,465 @@ Es una direccion IP virtual por que no esta asociada a ningun tipo de MAC fisica
 
 ### 56. Pods & Endpoints
 
+Endpoints:         10.244.0.102:80,10.244.0.87:80,10.244.0.88:80 + 4 more...
+
+**¿Qué son entonces los endpoints?**
+
+Son las direcciones IP internas de los pods (junto con el puerto) a los que el Service va a dirigir el tráfico.
+
+"Endpoints es la manera que tiene el servicio para trackear las ips a la cuales puede enviarles request"
+
+    kubectl get endpoints
+
+Cuando se crea un servicio con labels, el endpoint se crea de manera automatica.
+
+Para poder ver la direccion IP de los pods:
+
+    kubectl get pods -l app=front -o wide
+
+
+Debido a que el controadlro del servicio, esta observando los pods, que cumplen con el label que les fue asignado en el selector.
+
+Si se crea un pod si ningun controlador, es decir sin ningun replicaset, sin ningun deployment que haga match con ese label, automaticamente la IP del pod va a aparecer en el endpoint, muy parecido al tema de cuando un replciaset adopta un pod, que cumple con el label.
+
+
+
+    kubectl run --generator=run-pod/v1 podtest5 --image=nginx:alpine DEPRECADO
+    kubectl run podtest5 --image=nginx:alpine
+
+    kubectl label pods podtest5 app=front
+
+
+    kubectl describe endpoints my-service
+    Name:         my-service
+    Namespace:    default
+    Labels:       app=front
+    Annotations:  endpoints.kubernetes.io/last-change-trigger-time: 2025-09-24T02:53:39Z
+    Subsets:
+    Addresses:          10.244.0.102,10.244.0.104,10.244.0.87,10.244.0.88,10.244.0.90,10.244.0.92,10.244.0.93,10.244.0.98
+    NotReadyAddresses:  <none>
+    Ports:
+        Name     Port  Protocol
+        ----     ----  --------
+        <unset>  80    TCP
+
+    Events:  <none>
+
+Aparece cuando se filtra por el label recien agregado.
+
+    kubectl get pods -l app=front
+    NAME                                      READY   STATUS    RESTARTS        AGE
+    deployment-test-b447c675-5s22h            1/1     Running   1 (3h23m ago)   4d21h
+    podtest5                                  1/1     Running   0               3m15s
+
+Supongase que se tienen 3 pods de nginx, y el nuevo pod creado es algo totalmente distinto, **como el servicio esta observando estos 4 pods**, significa que estas 4 direcciones IPs van a estar en el endpoint, y tambien significa que cualquier request, que le llegue al servicio, van a ser atendidas por estos 4 pods. Y probablemente pueda haber inconsistencia de datos, por que este nuevo pod puede tener data distinta, a estos 3 de nginx, y cuando el request caiga a nginx perfecto, pero cuando caiga a podtest5, va a haber un problema y es que se va a tener data distinta o probablemente no se va a tener nada.
+
+**No es recomendable crear pods fuera de controladores, fuera de replicasets, fuera de deployments. Siempre se debe crear un pod con un objeto de mas alto nivel, que lo controle y que sea su dueño.**
+
 
 
 
 ### 57. Servicios y DNS
 
+Cuando se crea un servicio, este herda una direccion IP y tambien hereda un DNS.
+
+kubectl get svc 
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP    42d
+my-service   ClusterIP   10.101.86.254   <none>        8080/TCP   4d20h
+
+
+Devuelve los servicios,
+
+    kubectl run --rm -ti --generator=run-pod/v1 podtest6 --image=nginx:alpine --sh (DEPRECATED)
+
+    kubectl run podtest6 --rm -it --image=nginx:alpine --command -- sh
+
+    apk add -U curl 
+
+Se le va a hacer un curl al servicio. (10.101.86.254)
+
+    kubectl describe svc my-service
+    Name:              my-service
+    Namespace:         default
+    Labels:            app=front
+    Annotations:       <none>
+    Selector:          app=front
+    Type:              ClusterIP
+    IP Family Policy:  SingleStack
+    IP Families:       IPv4
+    IP:                10.101.86.254
+    IPs:               10.101.86.254
+    Port:              <unset>  8080/TCP
+    TargetPort:        80/TCP
+    Endpoints:         10.244.0.102:80,10.244.0.104:80,10.244.0.87:80 + 5 more...
+    Session Affinity:  None
+    Events:            <none>
+
+
+No responde nada esta IP:
+
+    / # curl 10.101.86.254
+
+
+**¿Por que?**
+
+Por que desde la definicion se esta indicando que el servicio va a estar escuchando por el puerto 8080. Ahora se intenta agregando el puerto.
+
+    / # curl 10.101.86.254:8080
+
+Ahora si responde el servidor nginx desde los pods.
+
+Lo que pasa es que cuando se hace la peticion al servicio por el puerto 8080, lo que pasa es que se redirige hacia la ip de un pod, en el puerto 80, obtiene la respuesta y luego la retorna hacia nosotros como un proxy.
+
+
+El servicio hereda un DNS tambien, asi que si se ejecuta curl con el nombre del servicio, va a funcionar tambien:
+
+        / # curl my-service:8080
+
+Y esto es demasiado util cuando se pretenden llamar diferentes servicios en aplicaciones, por ejemplo se tiene un deployment de pods que funcionan como backend, y se tinee un deployment de pods que funcionan como front.
+
+**¿Entonces como consume el front al backend?**
+
+Se crea un servicio en frente del deployment del backend, y se le hace request al nombre 
+
 
 ### 58. Servicio de tipo ClusterIP
 
 
+ClusterIP: Es una IP virtual, que kubernetes le asigna al servicio, esta IP es permanente en el tiempo, Kubernetes se va a encargar de mantener esta IP, esta IP es interna al cluster, es decir que utilizando nuestra IP o una IP externa no vamos a poder acceder a ella.
+
+EL profesor si puede acceder con la IP del servicio y el puerto 8080 desde su browser al servidor web nginx (POr que la IP es privada y se esta ejecutando en la maquina local), en mi caso no funciona.
+
+Posibles razones:
+
+- Como esta instalado minikube utilizando maquina virtual.
+- puede estar utilizando miniuke service
+
+Si yo quisiera exponer esto a mi IP, es decir a mi red local (LAN). POr que se trata de una IP del tipo 192.168.X.X y se trata de una IP externa al cluster. y la IP del servicio es una IP interna del cluster.
+
+El servicio de tipo cluster IP solamente crea una IP de tipo virtual, que es accesible dentro del cluster. Y esta IP es utilizada para la comunicacion interna entre servicios.
+
+Asi que con esta IP no se podra exponer nada hacia afuera del cluster. Entronces para definir el tipo de servicio, podemos dirigirnos al spec del tipo de servicio.
+
+Para exponer esta IP se va a utilizar algo llamado el NodePort.
+
 
 ### 59. Servicio de tipo NodePort
 
+**"Minikube simula al master y al nodo al mismo tiempo."**
+
+Es basicamente, otro tipó de servicio que funciona similar al CLusterIP peor permite exponer el servicio fuera del cluster.
+
+El cluster IP hace las veces de un balanceador para un grupo de Pods, seleccionados por un label que deberian ser administrados por un deployment. De esta forma se puede acceder al servicio de ClusterIp dentro de este nodo para poder alcanzar los pods.
+
+
+**¿Si un usuario en internet quisiera acceder al servicio como lo podria lograr?**
+
+El NodePort es basicamente una exposicion del servicio, por medio de un puerto del nodo.
+Este Nodo debe tener una IP, asi que se puede exponer un puerto al que el usuario puede llegar. El NodePort es basicamente un puerto que se abre a nivel del nodo. Para permitir el ingreso externo al cluster. Ala abrir este puerto se tiene la capacidad de ingresar al nodo, y una vez se ingrese al nodo se puede ingresar al servicio de cluster IP, que va a ingresar a mi servicio de pods, va a retornar una respuesta al cluster IP, y dicha respuesta retorna al usuario.
+
+El nodeport sirve para exponer un servicio afuera del cluster.
+NodePort expone un rango de puertos por defecto.
+
+Kubernetes NodePort Range (30000-32767)
+
+Al crear un servicio NodePort se puede definir el puerto o se toma uno de los por default en el rango anterior.
+
+    kubectl get pods -l app=front
+    kubectl get pods -l app=backend
+
+    kubectl get svc -l app=backend
+
+    NAME                  TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+    my-service-nodeport   NodePort   10.106.124.3   <none>        8080:30743/TCP   118m
+
+
+El servicio NodePort nos entrega el ClusterIP, de todas maneras un NodePort crea un ClusterIP, para lograr la conunicacion fuera del cluster y luego internamente se comunica con el ClusterIP, y se tiene el puerto que se expuso:   (30743)
+
+Nos podemos dar cuenta que ahora si se tiene el servicio por fuera del cluster.
+
+    minikube service my-service-nodeport
+
+    minikube service my-service-nodeport --url
+    http://192.168.59.102:30743
+
+O construir la IP manualmente con el puerto del servicio NodePort y la direccion IP de minikube.
+
+    minikube ip
+
+Probar con curl
+
+    curl $(minikube service my-service-nodeport --url)
+
+NodePort permite exponer el servicio por fuera del cluster, NodePort no reemplaza para nada un ClusterIP, NodePort crea un ClusterIP y adicionalmente abre un puerto en el nodo para recibir peticiones externas de fuentes externas. Recibimos en el NodePort y de todas maneras se va a enrutar en el ClusterIP, que esta apuntando hacia nuestros pods.
+
 
 ### 60. Servicio de tipo Load Balancer 
+
+Hace referencia a un servicio de tipo balanceador de carga, En este curso no se va a hacer esta practica por una pequeña limitacion. Los servicios de tipos Load Balancers solamente crean **balanceadores externos** en algun Cloud Provider. Y Kubernetes por defecto no nos ofrece ningun tipo de balanceador, por esta razon solo se va a ver el tema de arquitectura. Cuando se llegue al tema de Cloud, se retoma el tema de balanceadores, 
+
+Se tiene un nodo, lo que hace un tipo de servicio de Load balancer es efectivamente, provisionar un balanceador de carga en el Cloud provider definido,  luego de aprovisionarlo (crearlo en la nube) lo que va a pasar es que se van a abrir NodePorts en cada nodo, para que el usuario pueda acceder al balanceador, y una vez que acceda al balanceador, este va a acceder al NodePort, y una vez se acceda al NodePort vamos a poder acceder al ClusterIP, para acto seguido poder acceder a los pods que estan siendo observados por ese servicio.
+
+Recordar que estos pods deben de estar administrados por algun tipo de controlador, por algun Deployment o algun Replicaset.
+
+En Kubernetes se tienen muchas jerarquias,  de la misma manera que al crear un replicaset creamos pods, o al crear un Deployment creamos replicaset y pods, pasa algo similar, Cuando se crea un ClusterIP no pasada nada, solamente se crea un ClusterIP, cuando se crea un NodePort se esta creando automaticamente un ClusterIP mas un NodePort. Cuando se crea un balanceador, se esta creando un NodePort y al tiempo se esta creando un ClusterIP. Todo esto para que la comunicación pueda fluir de esta manera:
+
+El usuario le hace una solicitud al balanceador de carga, el balanceador de carga llega a los Nodos, (NodePort) y de esta manera puede ingresar al cluster. Normalmente estos balanceadores suelen estar en una subnet publica, es decir que tienen acceso a internet, (EL usuario puede ver el balanceador desde internet) pero es muy probable que la comunicacion hacia el nodo, desde el balanceador se haga por una subnet privada, es decir que normalmente este nodo no deberia tener acceso a internet, exponiendo directamente una IP publica.
+
+Por ahora no se va a utilizar, se requiere disponer de una cuenta de Cloud Provider. Esto se aborda cuando se vean los temas de ingress y los temas de Cloud.
 
 
 ## Section 10: Golang, Javascript y Kubernetes 
 
 
+### 61. Introducción
+
+Crear un servicio front, se van a tener n pods corriendo un servicio front que se va a escribir que va a estar administrado por un deployment. 
+Este servicio front lo que va a hacer es conectarse con otros pods, que van a estar corriendo un servicio de Backend que deben de estar administrador por un Deployment 
+
+La diferencia entre el Backend y el Frontend es que:
+
+1. Frontent va a tener un servicio de tipo NodePort. 
+2. Backend va a tener un servicio de Tipo ClusterIP.
+
+El usuario va a solicitar por el front (Su punto de acceso a la aplicacion / Nuestra pagina web).
+Asi que el usuario necesita que se le exponga el servicio. Por lo tanto se va a crear un NodePort, recordemos que el NodePort tambien crea un ClusterIP.
+
+"Cuando el usuario llegue por el NodePort va a llegar al servicio de CLusterIP, y el ClusterIP va a enviar la solicitud hacia los pods, que se tienen corriendo con el label que se definio en el ClusterIp.
+
+El front le va a hacer una peticion GET por http a nuestro backend. Asi que muy probablemente el backend sea un servicio REST. La idea es construir una pagina web muy sencilla, que va a obtener la informacion del backend, por medio de servicios, y se la va a devolver a nuestro usuario.
+
+
+### 62. Notas sobre Golang
+
+En este video, utilizaremos Golang para crear nuestra API. Para facilitar el proceso, usaremos Docker. 🐳
+
+🔹 Si no tienes Docker:
+No te preocupes. Puedes descargar la versión 1.13 de Golang para tu sistema operativo y simplemente ejecutar:
+
+go run main.go
+Esto iniciará la aplicación sin necesidad de Docker.
+
+🔹 Si sí usas Docker:
+En el video, utilizaremos el siguiente comando:
+
+docker run --net host
+Sin embargo, si tienes Docker en VirtualBox o en otra máquina distinta a la tuya, podrías tener problemas de conexión. En ese caso, en lugar de --net host, usa:
+
+docker run -p 9090:9090
+Luego, accede a tu aplicación en:
+👉 http://localhost:9090
+
+
+### 63. Golang: Empieza a escribir tu API
+
+Va a ser un servicio REST que va a devolver la hora actual, y el nombre del pod es decir el hostname ue ejecuto esa tarea. Se usara Go por que no se necesitan utilizar librerias externas por lo que va a ser muy facil crear el contenedor.
+
+**Se pudo haber escrito en python pero se necesitaria flask, o en node.js y se necesitaria express, con Go es bastante facil.**
+
+API de Referencia:
+
+    https://dev.to/moficodes/build-your-first-rest-api-with-go-2gcj
+
+
+1.23.2
+
+docker run --rm -dti --net host --name golang golang bash
+
+docker ps  -l
+
+docker rm -fv 
+
+docker run --rm -dti -v $PWD/:/go --net host --name golang golang bash
+
+
+docker pull golang:1.25.1
+
+golang:1.25.1-alpine - Versión ligera basada en Alpine Linux
+golang:1.25.1-bullseye - Basada en Debian Bullseye
+golang:1.25.1-bookworm - Basada en Debian Bookworm
+
+https://hub.docker.com/r/bitnami/golang
+
+
+    docker run --rm -dti -v $PWD/kubernetes-master/k8s-hands-on:/app -w /app --net host --name go-k8s-hands-on golang bash
+
+    docker exec -it go-k8s-hands-on bash
+
+    go run main.go
+
+Este servicio aun no devuelve nada dinamico, no devuelve la hora ni el hostname, solamente un string.
+
+
+### 64. Golang. Ultimos detalles
+
+"El curso esta orientado a Kubernetes, en K8s se necesitan aplicaciones funcionales" Por lo tanto se esta escribiendo esta.
+
+Se necesita una aplicacion funcional que devuelva algo para poder aprender como utilizar Kubernetes.
+
+
+### 65. Notas sobre Dockerfile para Golang
+
+Esta nota es solo para quienes no tienen Docker en su sistema y no pueden construir la imagen.
+
+image: ricardoandre97/backend-k8s-hands-on:v1
+
+### 66. Crea un Dockerfile para tu aplicación en Golang
+
+    docker build -t k8s-hands-on -f Dockerfile .
+
+    docker run -d -p 9091:9090 --name k8s-hands-on k8s-hands-on
+
+Asi se facil deberia ser para correr el contenedor que tiene el binario de la app.
+
+Se logra construir el Dokcerfile para la app, el servicio ya puede correr en un contenedor y esta esperando request desde cualñquier otro servicio o aplicacion.
+
+    docker rm -fv k8s-handson-on
+
+
+### 67. Notas sobre manifiestos de Kubernetes
+
+
+En el siguiente video, desplegaremos un par de objetos en Kubernetes. Uno de ellos será un servicio de tipo ClusterIP.
+
+🔹 Cómo probar el servicio?
+Para verificar que el servicio funciona, en el video seguimos estos pasos:
+
+1️⃣ Ejecutamos:
+
+kubectl get svc
+2️⃣ Tomamos la IP del servicio y la colocamos en el navegador.
+
+📌 Esto asume que tu clúster de Kubernetes está desplegado en tu propia máquina.
+
+🔹 ¿Y si mi clúster está en otra máquina o en la nube?
+Si tu clúster de Kubernetes está en otra máquina o en la nube, no podrás acceder directamente a la IP del ClusterIP, ya que esta solo es accesible internamente.
+
+Para solucionarlo, puedes usar kubectl port-forward (similar a docker run -p 9090:9090):
+
+kubectl port-forward service/<nombre-del-servicio> 9090:80
+Esto mapeará el puerto 80 del servicio interno al puerto 9090 en tu máquina, permitiéndote acceder con:
+
+👉 http://localhost:9090
+
+
+### 68. Escribe manifiestos de Kubernetes para desplegar tu aplicación
+
+Deberia crear un deployment tambien un servicio apuntando a los pods con label backend.
+
+    kubectl apply -f backend.yaml
+
+    deployment.apps/backend-k8s-hands-on created
+    service/backend-k8s-hands-on created
+
+
+    NAME                                    READY   STATUS    RESTARTS   AGE
+    backend-k8s-hands-on-7f69954bd5-7jgcs   1/1     Running   0          7m46s
+    backend-k8s-hands-on-7f69954bd5-l7w9p   1/1     Running   0          7m46s
+    backend-k8s-hands-on-7f69954bd5-tw465   1/1     Running   0          7m46s
+
+En caso de error se debe utilizar el image pull policy:
+
+    imagePullPolicy: IfNotPresent
+    Puede ser always
+
+
+Pude acceder como NodePort
+
+    minikube service backend-k8s-hands-on --url
+    http://192.168.59.102:30542/
+
+
+**No pude acceder con ClusterIP**
+
+¿Quién puede acceder a ClusterIP?
+Solo estos pueden acceder:
+
+Otros pods dentro del cluster
+
+# Desde otro pod, puedes hacer:
+
+    curl http://backend-k8s-hands-on.default.svc.cluster.local
+   
+O simplemente:
+   
+    curl http://backend-k8s-hands-on
+
+Usando kubectl port-forward (crea un túnel temporal)
+
+    kubectl port-forward service/backend-k8s-hands-on 8080:80
+   
+   # Ahora puedes acceder en: http://localhost:8080
+
+
+Andre accede con un cluster IP y no usa minikube tunnel
+
+
+diegoall@ph03nix:~/courses/pro-kubernetes/kubernetes-master/k8s-hands-on/backend$ minikube service backend-k8s-hands-on --url
+😿  service default/backend-k8s-hands-on has no node port
+❗  Services [default/backend-k8s-hands-on] have type "ClusterIP" not meant to be exposed, however for local development minikube allows you to access this !
+
+**El servicio es servido por pods distintos cuando se prueba con curl.**
+
+
+### 69. Aprender a consumir el servicio que creaste 
+
+
+
+### 70. Notas sobre acceder pods
+
+
+### 71. Empieza a escribir el cliente Javascript que consumira tu Backend en Go 
+
+
+
+### 72. Notas sobre acceder a un backend desde javascript
+
+
+
+### 73. Despliega una nueva versión de tu Backend para resolver errores en el FrontEnd
+
+
+
+### 74. Valida que tu servicio FrontEnd este funcionando como deberia
+
+
+
+### 75. Notas sobre el servicio front
+
+
+
+### 76. Crea los manifiestos de K8s para desplegar tu servicio Front  
+
+
+### 77. Crea un Dockerfile para tu aplicación en Javascript
+
+
+
+### 78. Despliega los servicios y valida su funcionamiento
+
+
 
 ## Section 11: Namespaces & Context - Organizar y aislar los recursos
+
+
+### 
+
+
+###
+
+
+###
+
+
+###
+
+
+###
+
+
+###
 
 
 ## Section 12: Limita la RAM y la CPU que pueden utilizar tus pods

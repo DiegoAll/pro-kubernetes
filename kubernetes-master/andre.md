@@ -1188,29 +1188,349 @@ diegoall@ph03nix:~/courses/pro-kubernetes/kubernetes-master/k8s-hands-on/backend
 
 ### 69. Aprender a consumir el servicio que creaste 
 
+Se va a ingresar a un pod y se va a generar una request POST, solamente para intentar hacer un llamado a la ip del servicio. Y ver sis e logra tener una respuesta desde el servicio, (Es el punto de entrada, y cuando se llama el va a traer la respuesta desde los pods  que cumplan con el label backend)
+
+    kubectl run podtest3 --rm -it --image=nginx:alpine -- sh
+
+    / # curl 10.111.65.200
+    {"time":"2025-10-01T02:44:19.248857054Z","hostname":"backend-k8s-hands-on-797446b86d-jjgkx"}/ # 
+
+**Si se repite la request se evidencia que cambia el pod que responde, se corrobora que el servicio esta funcionando bien y que adicionalmente todos los request que entren por el puerto 80 estan siendo redirigidos a los pods en el puerto :9090**
+
+Tambien se puede validar el DNS.
+
+    / # curl backend-k8s-hands-on
+    {"time":"2025-10-01T02:47:57.032559229Z","hostname":"backend-k8s-hands-on-797446b86d-jjgkx"}/
+
+Es decir que el servicio esta funcionando con el DNS y tambien con la dirección IP. De esta manera es como se va a llamar desde el front, el servicio del backend.
 
 
 ### 70. Notas sobre acceder pods
 
 
+En el siguiente video, intentamos nuevamente acceder directamente a la IP de un pod. Esto funciona si tu clúster de Kubernetes está en tu máquina.
+
+Sin embargo, si tu clúster está en otra máquina o esta opción no te funciona, puedes usar kubectl port-forward.
+
+🔹 Acceder a un pod con kubectl port-forward
+Este comando es similar a docker run -p 9090:9090 y te permite acceder al pod desde tu máquina local.
+
+kubectl port-forward <nombre_del_pod> <puerto_en_tu_maquina>:<puerto_del_pod>
+📌 Ejemplo:
+Si el puerto del pod es 9090 y quieres verlo en tu maquina en http://localhost:9091, usa:
+
+kubectl port-forward <nombre_del_pod> 9091:9090
+
+    https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/
+
+
 ### 71. Empieza a escribir el cliente Javascript que consumira tu Backend en Go 
+
+Desde el pod temporal
+
+    / # curl backend-k8s-hands-on
+    {"time":"2025-10-01T02:47:57.032559229Z","hostname":"backend-k8s-hands-on-797446b86d-jjgkx"}/
+
+
+La peticion javascript se hace desd el navegador, y desde este no se puede ver este nombre: (backend-k8s-hands-on), por que es un nombre local, es un DNS interno del cluster,  y el navegador es algo externo, asi que se podra ver es utilizando la direccion IP
+
+Se va a reemplazar el index.html que viene por default en nginx por el que se consulta en la web para ejecutar la request javascript.
+
+El parametro por ahora se puede dejar asi:
+
+    var url = "http://backend-k8s-hands-on";
+
+
+Pero cuando se haga el llamado desde javascript en el navegador, se va a quejar por qeu este DNS no existe en el navegador es algo solamente interno, por ahora se puede dejar asi, y luego se cambia por la direccion IP.
+
+
+
+
+
+Luego se inicia el servicio de nginx, con el comando nginx.
+
+    <div id="id01"></div>
+
+    <script>
+    var xmlhttp = new XMLHttpRequest();
+    var url = "http://backend-k8s-hands-on";
+
+    xmlhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            var resp= JSON.parse(this.responseText);
+            document.getElementById("id01").innerHTML = "<h2>La hora es: " + resp.time + "</h2>";
+
+        }
+    };
+
+    xmlhttp.open("GET", url, true);
+    xmlhttp.send();
+
+    </script>
+
+Como se creo un pod plano sin ningun controlador, solamente para el ejemplo. Se va a listar los pods para ver su IP. 
+
+    podtest3                                1/1     Running   0          32m   10.244.0.134   minikube   <none>           <none>
+
+
+Recrdar que esta IP es interna, solamente la podemos ver (nosotros). "Docente"
+
+**En el tutorial (IP 172.17.x.x)**
+
+Esa IP 172.17.0.17 corresponde a la red bridge de Docker.
+
+🔹 1. Diferencia de red CNI
+
+En tu entorno, los Pods reciben IPs 10.244.x.x. Eso es típico cuando Minikube usa CNI (Container Network Interface) como flannel, calico, etc.
+
+En ese esquema, las IPs de los Pods están en una red privada solo accesible desde dentro del clúster.
+
+En el video, los Pods estaban recibiendo IPs 172.17.x.x.
+Eso es la red bridge de Docker, que sí es alcanzable desde el host.
+Eso significa que Minikube estaba configurado con el driver de Docker y sin un CNI adicional, por lo que los Pods quedaban directamente expuestos en esa red.
+
+🔹 2. Driver de Minikube
+
+Cuando arrancas Minikube, eliges un driver (docker, virtualbox, kvm, etc).
+
+Si usas --driver=docker, Minikube corre como un contenedor dentro de Docker, y los Pods pueden usar la red 172.17.0.0/16 que sí es accesible desde el host.
+
+Si usas --driver=virtualbox o incluso --driver=docker + CNI, Minikube monta una red interna distinta (10.244.0.0/16), no visible desde tu navegador.
+
+🔹 3. Conclusión
+
+En el video:
+
+Minikube estaba corriendo con el driver docker y sin CNI extra → Pods con IP 172.17.x.x accesibles desde el host.
+
+En tu caso:
+
+Minikube está corriendo con un CNI (flannel) → Pods con IP 10.244.x.x no accesibles desde el host sin un Service.
+
+
+**⚡ Opciones para que tengas el mismo comportamiento que en el video:**
+
+Levantar Minikube con el driver docker y sin CNI extra:
+
+    minikube start --driver=docker --network-plugin=cni=false --cni=false
+
+
+Eso debería darte Pods en 172.17.x.x accesibles desde el host.
+
+O, con tu configuración actual (10.244.x.x), exponer el Pod con:
+
+    kubectl expose pod podtest3 --type=NodePort --port=80
+    minikube service podtest3 --url
+
+
+diegoall@ph03nix:~/courses/pro-kubernetes$ minikube status
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
+
+diegoall@ph03nix:~/courses/pro-kubernetes$ minikube profile list
+|----------|------------|---------|----------------|------|---------|---------|-------|----------------|--------------------|
+| Profile  | VM Driver  | Runtime |       IP       | Port | Version | Status  | Nodes | Active Profile | Active Kubecontext |
+|----------|------------|---------|----------------|------|---------|---------|-------|----------------|--------------------|
+| minikube | virtualbox | docker  | 192.168.59.102 | 8443 | v1.30.0 | Running |     1 | *              | *                  |
+|----------|------------|---------|----------------|------|---------|---------|-------|----------------|--------------------|
+
+
+Para no cambiar la configuracion a Docker por que se usa Virtual Box.
+Se puede hacer lo siguiente:
+
+1️⃣ Exponer el Pod
+
+    kubectl expose pod podtest3 --type=NodePort --port=80
+
+2️⃣ Ver el puerto asignado
+
+    kubectl expose pod podtest3 --type=NodePort --port=80
+    service/podtest3 exposed
+    kubectl get svc
+    NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+    backend-k8s-hands-on   ClusterIP   10.111.65.200   <none>        80/TCP         26h
+    kubernetes             ClusterIP   10.96.0.1       <none>        443/TCP        49d
+    podtest3               NodePort    10.98.248.93    <none>        80:31647/TCP   4s
+
+
+Luego accedo desde mi maquina local con la IP del cluster y el puerto asignado:
+
+    minikube ip
+
+http://192.168.59.102:31647/  (Ahora ya se puede acceder)
+
+
+
+El profesor le da un problema de CORS, a mi me da otro.
 
 
 
 ### 72. Notas sobre acceder a un backend desde javascript
 
 
+En el siguiente video intentaremos acceder al servicio desplegado en http://backend-k8s-hands-on desde tu navegador usando JavaScript.
+
+🔹 Nota importante:
+JavaScript intentará acceder a tu servicio desde tu navegador, por lo que este debe tener acceso al host.
+📌 Si tu clúster de Kubernetes no está en tu máquina local, esto causará problemas.
+
+🔹 Solución en 2 pasos  (Solo si tienes problemas):
+
+
+1️⃣ Abre una terminal y haz un port-forward de tu servicio
+
+# Mapea el puerto 80 de tu máquina al puerto 80 del servicio  
+kubectl port-forward service/backend-k8s-hands-on 80:80 
+2️⃣ Modifica tu archivo hosts para que el navegador pueda acceder al backend
+
+# Abre el archivo hosts (en Linux y macOS)  
+sudo vi /etc/hosts 
+# Agrega esta línea al final:
+127.0.0.1 backend-k8s-hands-on  
+Guarda los cambios y cierra el archivo.
+
+✨ ¡Listo! Ahora ve a http://backend-k8s-hands-on en tu navegador y deberías ver el servicio sin problemas. 🚀
+
+
 
 ### 73. Despliega una nueva versión de tu Backend para resolver errores en el FrontEnd
 
+Modificar desde el backend este header para que permita el acceso a todos.
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+
+El tema es que esto es una imagen de Docker y esta desplegado en Kubernetes,asi que se debe construir una imagen nueva y luego aplicarlo en el Deployment.
+Por ahora toca ejecutar: 
+
+    eval $(minikube -p minikube docker-env)
+    docker build -t k8s-hands-on:v2 -f Dockerfile .
+
+Es decir se esta creando un nuevo replicaset con pods nuevos y se van eliminando los antiguos y creando los nuevos. Para no tener Downtime es decir para que nuestro servicio siempre este arriba.
+
+Se puede utilizar este comando para no tener que estar ejecutando cada cierto tiempo:
+
+    kubectl get pods --watch 
+
+Ahora que el backend esta corregido con un nuevo header se va a intentar de nuevo en Javascript.
+
+Aparece este error:
+
+    backend-k8s-hands-on/:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+
+1. El frontend usa http://backend-k8s-hands-on como URL, pero:
+
+- Ese nombre solo existe como Service dentro del cluster de Kubernetes.
+
+- El navegador en tu máquina no conoce ese DNS interno → por eso falla la resolución.
+
+
+2. El backend escucha en el puerto 9090, pero tu Service (podtest3) está exponiendo el puerto 80.
+
+Eso quiere decir que aunque logres conectar, estarías apuntando al puerto incorrecto.
+
+Debes mapear el puerto 9090 del contenedor al puerto 80 (o al NodePort) en el Service.
+
+
+Opción 1: Usar el NodePort/IP directamente
+
+    var url = "http://192.168.59.102:31647";
+
+Así apuntas desde tu navegador al backend expuesto por Kubernetes.
+
+
+Opción 2: Ajustar el Service para mapear el puerto real
+
+
+
+#######################
+
+
+- podtest3 : frontend
+
+- 3 pods con el backend  (Por mi caso hay un nodeport en el Service)
+
+        type: NodePort
+        ports:
+            - port: 80
+            targetPort: 9090
+            protocol: TCP
+
+- No utilice el expose, solo cambie de ClusterIp a NodePort.
 
 
 ### 74. Valida que tu servicio FrontEnd este funcionando como deberia
 
+**El problema del balanceo de carga**
+
+Estás viendo siempre el mismo pod (backend-k8s-hands-on-68ff95bcf4-twshs) porque el balanceo de carga en Kubernetes funciona a nivel de conexión TCP, no de petición HTTP.
+
+**¿Qué está pasando?**
+
+Cuando accedes desde el navegador a través de NodePort:
+
+Tu navegador reutiliza la misma conexión TCP para múltiples peticiones (HTTP Keep-Alive)
+Kubernetes balancea por conexión, no por petición individual
+Una vez establecida la conexión con un pod, todas las peticiones van al mismo pod mientras la conexión esté activa
+
+Soluciones para ver el balanceo funcionando:
+Opción 1: Usar curl desde la terminal (la más fácil)
+Cada ejecución de curl crea una nueva conexión:
+
+Ahora si despues de corregida le IP en el frontend en el pod directamente, se puede ver que cambia el pod que responde
+
+
+Con curl se puede notar que si cambia el pod que responde, no es como http.
+
+curl -s http://192.168.59.102:32735/
+{"time":"2025-10-01T06:16:27.654341286Z","hostname":"backend-k8s-hands-on-68ff95bcf4-twshs"} 
+curl -s http://192.168.59.102:32735/
+{"time":"2025-10-01T06:16:30.647040428Z","hostname":"backend-k8s-hands-on-68ff95bcf4-2d9rc"}
+ curl -s http://192.168.59.102:32735/
+{"time":"2025-10-01T06:16:35.175963498Z","hostname":"backend-k8s-hands-on-68ff95bcf4-2d9rc"}
+curl -s http://192.168.59.102:32735/
+{"time":"2025-10-01T06:16:40.751668639Z","hostname":"backend-k8s-hands-on-68ff95bcf4-2d9rc"}
+ curl -s http://192.168.59.102:32735/
+{"time":"2025-10-01T06:16:45.237514267Z","hostname":"backend-k8s-hands-on-68ff95bcf4-twshs"}
+
+
+COn curl se pueden ver respuestas de diferentes pods y desd el browser se ve siempre el mismo pod respondiendo:
+
+Lo que estás observando es la diferencia entre cómo balancea Kubernetes el tráfico de un Service dependiendo del cliente:
+
+
+Con curl desde la terminal:
+Cada petición es una nueva conexión HTTP independiente (no mantiene keep-alive).
+→ El Service de Kubernetes reparte las peticiones entre los pods del backend de manera round-robin (o según el algoritmo de kube-proxy en tu cluster).
+→ Por eso ves que a veces responde un pod y a veces otro (twshs, 2d9rc, etc.).
+
+Con el navegador:
+El navegador mantiene una conexión persistente (HTTP keep-alive) con el pod que respondió primero.
+→ Eso significa que todas las peticiones siguientes viajan por el mismo socket TCP y llegan al mismo pod, sin re-balanceo.
+→ Por eso siempre ves el mismo pod (njjgj) en tus pruebas desde el browser.
+
+🔎 En resumen:
+
+curl → nuevas conexiones cada vez → balanceo entre pods.
+
+navegador → conexión persistente → siempre el mismo pod (hasta que la conexión se cierre o expire).
+
+👉 Si quisieras que el navegador también balanceara en cada request, tendrías que deshabilitar keep-alive o forzar nuevas conexiones (no es lo usual, ya que keep-alive mejora el rendimiento).
 
 
 ### 75. Notas sobre el servicio front
 
+Recuerda que si tu cluster no es local, no tendra acceso a las imagenes de Docker y puede que tu pod falle con un error, diciendo que no puede bajar la imagen.
+
+Asi que para solucionarlo, solo usa esta imagen:
+
+
+frontend-k8s-hands-on:v1
 
 
 ### 76. Crea los manifiestos de K8s para desplegar tu servicio Front  

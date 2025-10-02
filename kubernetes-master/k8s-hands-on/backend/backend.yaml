@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-k8s-hands-on
+  labels:
+    app: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: k8s-hands-on
+          # image: k8s-hands-on
+          image: k8s-hands-on:v2
+          imagePullPolicy: IfNotPresent
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-k8s-hands-on
+  labels: 
+    app: backend
+spec:
+  # type: NodePort  # Desde el navegador
+  # type: ClusterIP  # Desde dentro del cluster
+  # selector:
+  #   app: backend
+  # ports:
+  #   - protocol: TCP
+  #     port: 80
+  #     targetPort: 9090  # que puerto dentro del contenedor o del pod voy a consumir
+
+# Para poder ver la conexion con la APi de go dedel browser.
+  selector:
+    app: backend
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 9090
+      protocol: TCP
+

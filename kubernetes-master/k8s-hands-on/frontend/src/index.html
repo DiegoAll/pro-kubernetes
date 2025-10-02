@@ -1,0 +1,21 @@
+<div id="id01"></div>
+
+<img src="https://d1.awsstatic.com/onedam/marketing-channels/website/aws/en_US/product-categories/containers/approved/images/5c9af017-4a14-a81b-302d-0fe939b1510b.e5f22d5e8c66fe1fa21800942dd8013f46c8586d.png">
+
+<script>
+var xmlhttp = new XMLHttpRequest();
+// var url = "http://backend-k8s-hands-on";
+var url = "http://192.168.59.102:32735";
+
+xmlhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+        var resp= JSON.parse(this.responseText);
+        document.getElementById("id01").innerHTML = "<h2>La hora es: " + resp.time + "y el hostname es " + resp.hostname + "</h2>";
+
+    }
+};
+
+xmlhttp.open("GET", url, true);
+xmlhttp.send();
+
+</script>

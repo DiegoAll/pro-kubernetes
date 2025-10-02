@@ -1535,37 +1535,149 @@ frontend-k8s-hands-on:v1
 
 ### 76. Crea los manifiestos de K8s para desplegar tu servicio Front  
 
+El puerto que ejecuta nginx es el 80
+
 
 ### 77. Crea un Dockerfile para tu aplicación en Javascript
 
+    eval $(minikube -p minikube docker-env)
+    docker build -t frontend-k8s-hands-on:v1 -f Dockerfile .
 
 
 ### 78. Despliega los servicios y valida su funcionamiento
 
+kubectl get pods -l app=frontend
+NAME                                     READY   STATUS    RESTARTS   AGE
+frontend-k8s-hands-on-68f7db6c6d-648gr   1/1     Running   0          2m3s
+frontend-k8s-hands-on-68f7db6c6d-hvvq9   1/1     Running   0          2m4s
+frontend-k8s-hands-on-68f7db6c6d-pmqxw   1/1     Running   0          2m5s
+
+kubectl get svc
+NAME                    TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+backend-k8s-hands-on    NodePort    10.111.65.200    <none>        80:32735/TCP   2d2h
+frontend-k8s-hands-on   NodePort    10.101.246.141   <none>        80:30433/TCP   4m39s
+kubernetes              ClusterIP   10.96.0.1        <none>        443/TCP        50d
+podtest3                NodePort    10.98.248.93     <none>        80:31647/TCP   23h
+
+
+El servicio tiene NodePort por ende se puede realizar un llamado desde fuera del cluster.
+Validar que el servicio este funcionando como se debe desde el navegador:
+
+    http://192.168.59.102:30433/
+
+La respuesta es:
+
+La hora es: 2025-10-02T03:47:10.544860963Zy el hostname es backend-k8s-hands-on-68ff95bcf4-njjgj
+
+Si yo quisiera que alguien vea este servicio lo que se puede hacer es utilizar la IP actual de la maquina.  
+
+Se prueba y no se puede acceder, se valida el NodePort y se cuenta con un rango y en kubernetes asigna un puerto dentro de ese rango por defecto.
+
+ip a
+192.168.1.73
+
+✅ Funciona: http://192.168.59.102:30433 (IP de Minikube)
+❌ No funciona: http://192.168.1.73:30433 o http://192.168.1.49:30433 (IPs de tu host)
+
+Es por el mismo tema de siempre, Andre esta utilizando otro driver.
+
+
+Para poder alcanzar el frontend que esta al interior del cluster en minikube se puede hacer un port forward y se logra acceder desde el navegador local.
+
+http://localhost:30433/
+La hora es: 2025-10-02T04:04:04.977288315Zy el hostname es backend-k8s-hands-on-68ff95bcf4-njjgj
+
+Solo se puede acceder con localhost:
+
+http://192.168.1.73:30433/
+http://192.168.1.49:30433/
+
+
+Con las IPs asociadas a las interfaces no se puede entrar.
+
+En resumen se vio como se pueden generar comunicaciones, entre deployments por medio de servicios.
 
 
 ## Section 11: Namespaces & Context - Organizar y aislar los recursos
 
 
-### 
+### 79. Nota sobre el siguiente video
+
+Bobada de un bug
+
+### 80. ¿Que es un namaespace?
+
+Separacion logica que nos brinda un scope, es unmo un limite, (Nos limita a ciertas cosas).
+
+En la documentacion de kubernetes dicen que un namespace sirve para crea run cluster virtual. 
+
+Todos los recursos que se creen, por ejemplo un deployment, un replicaset, un pod, etc. en un namespace y luego se crean otros objetos en otro namespace van a estar completamente aislados.
+
+Ayuda a separar logicamente el cluster para aprovechar los recursos, digamos que no se quiere crear un cluster para cada ambiente, se considera crear un cluster para los 2 ambientes, se crea el namespace de Dev y luego el namespace de UAT sin ningun problema utilizando los mismos recursos sin nigun problema y esto nos evita tener que crear otro cluster nuevo.
+
+Tambien sirven para poder tener diferentes proyectos, o tambien se pudiera no usar namespaces sino labels con los nombres de los proyectos.
+
+para manejar diferentes equipos, uno para la gente de desarrollo, para la gente de finanzas o algo por el estilo. Y ayuda a separarlos de manera logica, es decir que el que tenga acceso al siguiente namespace, 
+
+Nos ayuda a controlar muchos tipos de recursos, Ejemeplo, yo quiero que aquis e creen solamente 10 pods, y eso es muy bueno. Tambien nos ayuda a controlar por ejemplo que aca los pods de este namespace no superen 500 mb de ram cada uno, Se quiere que en este namespace no se consuman mas de 50 mb de ram,   
+
+Puede ayudar con autorizacion, este usuario puede hacer estas acciones en este namespace, ayuda tambien a controlar autorizacion,
+
+- Limite para usuarios, numero de objetos que podemos crear, es decir limites en los recursos de la API, limites por pod, por recurso, por objeto, limites por defecto si no se los colocan, limites a nivel de namespace, a nivel de cuanto maximo voy a permitir en recursos de hardware, 
+
+### 81. Namespaces por defecto
+
+    kubectl get namespaces
+
+    kubectl get pods --namespace default
+
+- default: es para todos los objetods que no especifiquen un namespace.
+- kube-node-lease: Destinado a almacenar objetos de tipo Lease asociados a cada nodo del clúster.
+- kube-public
+- kube-system: contiene todos los objetos de kubernetes (kube-proxy) por que se esta actuando como nodo.
+- 
+
+    kubectl get all -n kube-node-lease
 
 
-###
+### 82. Crea tu primer Namespace
+
+    kubectl create namespace test-ns
+
+    kubectl get namespaces --show-labels
+
+No resource quota.
+
+era un convertidor decente.
+
+https://www.bairesdev.com/tools/json2yaml/
+
+    kubectl apply -f ns.yaml
+
+    kubectl get namespaces --show-labels
+    NAME                   STATUS   AGE   LABELS
+    default                Active   50d   kubernetes.io/metadata.name=default
+    development            Active   55s   kubernetes.io/metadata.name=development,name=development
 
 
-###
 
 
-###
+### 83. Objetos en un Namespace
 
 
-###
+### 84. DNS en los servicios de un Namespace
 
 
-###
+### 85. Notas sobre el contexto
+
+
+### 86. Aprende a utilizar el contexto 
 
 
 ## Section 12: Limita la RAM y la CPU que pueden utilizar tus pods
+
+
+
 
 
 ## Section 13: LimitRange - Uso de recursos a nivel de objetos

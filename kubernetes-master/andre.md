@@ -1665,19 +1665,177 @@ https://www.bairesdev.com/tools/json2yaml/
 ### 83. Objetos en un Namespace
 
 
+kubectl get deploy -n prod
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE
+deployment-prod   2/2     2            2           4m39s
+
+kubectl get deploy -n dev
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+deployment-dev   1/1     1            1           4m43s
+
+
 ### 84. DNS en los servicios de un Namespace
+
+    kubectl get pods -n "prod"
+    kubectl get svc -n ci
+
+
+Crear un pod en el namespace default y se va a intentar acceder al backend creado anteriormente.
+
+kubectl run --rm -ti --generator=run-pod/v1 podtest-random --image=nginx:alpine -- sh
+
+
+
+Como se crean los DNSs?
+Cuando los servicios que se estan creando, viven en un namespace y eso aplica incluso para el default.
+
+    svcName + nsName + svc.cluster.local
+
+
+Considerando que la api esta en otro namespace
+
+    / # curl backend-k8s-hands-on.ci.svc.cluster.local
+    {"time":"2025-10-03T02:52:29.377318565Z","hostname":"backend-k8s-hands-on-68ff95bcf4-wnmd4"}
+
+
+kubectl get all -n ci
+NAME                                        READY   STATUS    RESTARTS   AGE
+pod/backend-k8s-hands-on-68ff95bcf4-kns8x   1/1     Running   0          13m
+pod/backend-k8s-hands-on-68ff95bcf4-nksg6   1/1     Running   0          13m
+pod/backend-k8s-hands-on-68ff95bcf4-wnmd4   1/1     Running   0          13m
+
+NAME                           TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+service/backend-k8s-hands-on   NodePort   10.111.92.174   <none>        80:32410/TCP   13m
+
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/backend-k8s-hands-on   3/3     3            3           13m
+
+NAME                                              DESIRED   CURRENT   READY   AGE
+replicaset.apps/backend-k8s-hands-on-68ff95bcf4   3         3         3       13m
+
+Notese que se esta haciendo esta peticion desde el namespace de default.
+Sino se le pasa el FQDN no se va a poder resolver porque el lo que hace ahora mismo. 
+
+    / # curl backend-k8s-hands-on.ci
+    {"time":"2025-10-03T02:58:13.816117391Z","hostname":"backend-k8s-hands-on-68ff95bcf4-kns8x"}/ 
 
 
 ### 85. Notas sobre el contexto
 
+En el siguiente video, verás cómo acceder al archivo de configuración de Kubernetes.
+
+Por defecto, este archivo se encuentra en:
+
+$HOME/.kube/config
+📌 Importante:
+Si creaste el clúster con un usuario sin privilegios de root, el archivo estará en:
+
+$HOME/.kube/config
+Sin embargo, en mi caso, como creé el clúster de Minikube con el usuario root, mi $HOME es /root, por lo que (en mi caso) el archivo se encuentra en:
+
+/root/.kube/config
+
 
 ### 86. Aprende a utilizar el contexto 
+
+    kubectl config current-context
+    
+    kubectl config view
+
+Enlazar namespace a un contexto  
+
+    kubectl config set-context ci-context --namespace=ci --cluster=minikube --user=minikube
+    Context "ci-context" created.
+
+    kubectl config get-contexts
+    CURRENT   NAME         CLUSTER    AUTHINFO   NAMESPACE
+            ci-context   minikube   minikube   ci
+    *         minikube     minikube   minikube   default
+
+¿Como podemos ahora cambiarnos hacia ese contexto?
+
+    kubectl config use-context ci-context
+
+
+    kubectl config use-context ci-context
+    Switched to context "ci-context".
+
+    kubectl get pods
+    NAME                                    READY   STATUS    RESTARTS   AGE
+    backend-k8s-hands-on-68ff95bcf4-kns8x   1/1     Running   0          90m
+    backend-k8s-hands-on-68ff95bcf4-nksg6   1/1     Running   0          90m
+    backend-k8s-hands-on-68ff95bcf4-wnmd4   1/1     Running   0          90m
+
+    kubectl config use-context minikube
+    Switched to context "minikube".
+
+    kubectl get pods
+    NAME             READY   STATUS    RESTARTS   AGE
+    podtest-random   1/1     Running   0          84m
+
+
+**Es mas comodo crear el contexto y luego usar el contexto para ejecutar todos los comandos que se necesiten alli, sin necesidad de pasar el parametro -n que es algo tedioso**
 
 
 ## Section 12: Limita la RAM y la CPU que pueden utilizar tus pods
 
 
+### 87.¿Por que deberias empezar a usar limites?
 
+Como limitar un pod para que no consuma mas de x cantidad de RAM y de CPU.
+
+Imaginarse 1 nodo que tiene 1 CPU y que tiene 1 GB de RAM.
+Si no se colocan limites lod pods podrian consumirse el CPU completo e igualmente para la RAM.
+
+Si un pod es capaz de consumir todos los recursos del nodo significa que es capaz que el nodo se caiga.
+Por eso es importante poder limitar el consumo de recursos de los pods.
+
+RAM: bytes, Mb, Gb
+CPU: 
+
+1 CPU significa 1000 milicores, esto significa que para limitar un contenedor al 10 % de la CPU, 
+Se le puede decir que utilice el 0.1 de esa CPU, es decir 100 milicores 
+
+
+### 88. ¿Que son los limits y los request?
+
+
+Request: Cantidad de recursos de las que siempre el pod va a poder disponer.
+Digamos que un pod siempre va a necesitar 20 Mb de RAM, (esa ejecutando un servicio ligero), si se solocan 20 Mb de RAM como request, Kubernetes se va a encargar de colocar este pod donde le pueda dar 20 Mb de RAM (Los va a garantizar, de forma dedicada). 
+
+Limits: Es algo distinto,  si se tiene un limite de 30 Mb significa que se esta pasando 10 Mb del valor del request, esto significa que el pod va a poder acceder a 30 Mb de RAM ¿Cual es la diferencia?
+Que estos 20 Mb son garantizados, los 10 adicionales no son garantizados.
+
+Que pasa el el pod sobrepasa estos 30 Mb de limite, entra Kubernetes, ya se permitio aumentar en 10 Mb que fue lo que me dieron de limite, cuando llegue a este limite Kubernetes lo va a eliminar o lo va a reiniciar. Esto depende mucho de las politicas de reinicio del pod,  
+
+De esta forma se puede decir que un request es basicamente la capacidad en recursos garantizada que tiene un pod, y los limites una posibilidad de incremento temporal pero no garantizada.
+
+
+### 89. ¿Que sucede si un pod supera el request pero no el limite en RAM?
+
+Se puede limitar contenedor por contenedor, esto es gracias al namespace del Cgroup, que cada contenedor dentro del pod mantiene como individual.
+
+    pod-limit-ram.yaml
+
+
+
+### 90. ¿Que sucede si un pod supera el limite de RAM?
+
+
+### 91. ¿Qué sucede si ningun nodo tiene la RAM solicitada por un pod?
+
+
+
+### 92. Limita los recursos de la cpu
+
+
+
+### 93. ¿Que sucede si ningun nodo tiene la cpu solicitada por un pod?
+
+
+
+
+### 94. QoS Classes
 
 
 ## Section 13: LimitRange - Uso de recursos a nivel de objetos

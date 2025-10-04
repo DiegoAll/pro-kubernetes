@@ -1988,11 +1988,61 @@ Son clases en las que entra un pod dependiendo de su configuracion en limites.
 ## Section 13: LimitRange - Uso de recursos a nivel de objetos
 
 
+### 95. ¿Qué es un LimitRange? 
+
+Como limitar recursos pero ahora enfocados en namespaces.
+
+LimitRange es un objeto en Kubernetes que permite controlar objetos a nivel de objetos.
+Se tiene un namespace llamado CI, y dentro de este namespace se quieren colocar constraints o limitantes, se quieren aplicar politicas o limits. Se pueden colocar valores por defecto en temas de limite, es decir yo quiero que cualquier pod que se cree en este namespace,  y que no tenga un  request o un limite de memoria o de CPU, yo puedo automaticamente asignarle un valor, es decir si no le colocan un valor, se lee la configuracion del limitRange y se le aplican al pod esos limites por defecto. Otra funcionalidad es que podemos, tambien definirle a este pod un  minimo de recursos y tambien un maximo. COmo se vio en un caso anterior se puede asignar a una maquina 1000 CPUs, pero ninguna maquina tiene 1000 CPUs, por lo tanto si se aplica una politica de maximo (1 CPU por ejemplo) , si alguien pide 2 CPUs va a encontrar un error y no va a poder crear el pod, es decir que eso se aplica a nivel del objeto, ni siquiera dejar crear el objeto, se puede decir que el limitRange nos ayuda a controlar las configuraciones o inyectar valores.
+
+
+
+
+### 96. Aplica valores por defecto los pods que no definan limites
+
+### 97. Valida el funcionamiento de los limites por defecto 
+
+### 98. Crea un limitRange con valores minimos y maximos
+
+### 99. Valida el funcionamiento de las politicas de minimi/macimo de un limitRange
+
+
 ## Section 14: ResourceQuota - Agrega limites a nivel de namespace
 
 
+### 100. ¿Que es un ResourceQuota?
+
+
+### 101. Crea tu primer Resource Quota  
+
+
+### 102. Intenta sobrepasar los limites de tu ResourceQuota
+
+
+### 103. Limita el numero de pods que se pueden crear en un Namespace
+
 
 ## Section 15: Health Checks & Probes - Vigila el estado de tus contenedores
+
+
+### 104. 
+
+
+
+### 105.
+
+
+
+### 106.
+
+
+
+### 107.
+
+
+
+
+### 108. 
 
 
 

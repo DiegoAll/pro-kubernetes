@@ -1821,21 +1821,168 @@ Se puede limitar contenedor por contenedor, esto es gracias al namespace del Cgr
 
 ### 90. ¿Que sucede si un pod supera el limite de RAM?
 
+otro manifiesto, estresan el cluster 
+
+$ kubectl apply -f limit-ram2.yaml 
+pod/memory-demo created
+
+$ kubectl get pods
+NAME          READY   STATUS             RESTARTS     AGE
+memory-demo   0/1     CrashLoopBackOff   1 (7s ago)   10s
+
+$ kubectl get pods --watch
+NAME          READY   STATUS      RESTARTS      AGE
+memory-demo   0/1     OOMKilled   2 (18s ago)   21s
+memory-demo   0/1     CrashLoopBackOff   2 (11s ago)   28s
+memory-demo   0/1     OOMKilled          3 (28s ago)   45s
+memory-demo   0/1     CrashLoopBackOff   3 (13s ago)   57s
+
+
+**OOMKilled: Out of memory**
+
+
+Indica que el contenedor esta utilizando mas memoria RAM de la que esta definida en los limites. POr lo tanto kubernetes va a intentar reiniciarlo un par de veces, para ver si logra recuperarse, para liberar al RAM e iniciar de nuevo.
+
+
+    kubectl get pods memory-demo -o yaml
+
+  - containerID: docker://0df86aff1418cd18851871783018b5db1fdd8b5710ecb4dbc24b09bcd9160b69
+    image: polinux/stress:latest
+    imageID: docker-pullable://polinux/stress@sha256:b6144f84f9c15dac80deb48d3a646b55c7043ab1d83ea0a697c09097aaad21aa
+    lastState:
+      terminated:
+        containerID: docker://0df86aff1418cd18851871783018b5db1fdd8b5710ecb4dbc24b09bcd9160b69
+        exitCode: 1
+        finishedAt: "2025-10-03T16:04:29Z"
+        reason: OOMKilled
+        startedAt: "2025-10-03T16:04:29Z"
+    name: memory-demo-ctr
+    ready: false
+    restartCount: 5
+    started: false
+    state:
+      waiting:
+        message: back-off 2m40s restarting failed container=memory-demo-ctr pod=memory-demo_default(6c91932f-54ef-4c8c-81da-cb795ad44e27)
+        reason: CrashLoopBackOff
 
 ### 91. ¿Qué sucede si ningun nodo tiene la RAM solicitada por un pod?
+
+limit-ram3.yaml
+
+
+$ kubectl apply -f limit-ram3.yaml
+pod/memory-demo created
+
+$ kubectl get pods
+NAME          READY   STATUS    RESTARTS   AGE
+memory-demo   0/1     Pending   0          4s
+
+$ kubectl get pods --watch
+NAME          READY   STATUS    RESTARTS   AGE
+memory-demo   0/1     Pending   0          15s
+
+
+Pending: esta en espera de encontrar un nodo en el que pueda satisfacer sus necesidades, un nodo que tenga 1000 Gb de RAM donde pueda satisfacer el request de este pod, pero obviamente esto nunca va a pasar por lo tanto siempre va aq quedar en ese status Pending.
+
+kubectl describe pod/memory-demo
+
+Events:
+  Type     Reason            Age    From               Message
+  ----     ------            ----   ----               -------
+  Warning  FailedScheduling  4m30s  default-scheduler  0/1 nodes are available: 1 Insufficient memory. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.
+
 
 
 
 ### 92. Limita los recursos de la cpu
 
+Segun lo aprendido el contenedor deberia ser reiniciado.
+Con la CPU la declaracion es muy parecida, pero lo diferente es que kubernetes no va a reiniciar el pod, cuando el pod consuma mas de sus limites, en este caso lo que va a hacer kubernetes, es sencillamente garantizar que el pod no va a aumentar el consumo a mas de 1 CPU, de su limite asi se le pidan 2 CPus, el pod no se va a reiniciar ni a eliminar solo llega al limite y ya.
+
+**"Kubernetes garantiza que en CPU no va a consumir mas de su limite"**
+
+Para ver esto tendriamos que tener instalado el metrics server, que es una herramienta (plugin de kubernetes) que permite recolectar metricas.
+
+Como no esta instalado se puede ver el uso del nodo, es decir el uso de la maquina.
+
+    kubectl describe node minikube
+
+    Allocated resources:
+    (Total limits may be over 100 percent, i.e., overcommitted.)
+    Resource           Requests     Limits
+    --------           --------     ------
+    cpu                1350m (27%)  1 (20%)
+    memory             260Mi (6%)   170Mi (4%)
+    ephemeral-storage  0 (0%)       0 (0%)
+    hugepages-2Mi      0 (0%)       0 (0%)
+
+Se tienen allocados 1'3 CPUs.
+
+Y se solicitaron 2 CPUs.
+
+    args:
+    - -cpus
+    - "2"
+
+Por lo tanto deberia de tener 2 CPUs allocadas, lo que hace kuberntes es garantizar que el pod no va a sobrepasar el limite en terminos de CPU.
+
+Si una aplicacion consume mas CPU de la que se le esta siendo entregada, se van a tner problemas de rendimiento y se colocaria lenta de a poco.
 
 
 ### 93. ¿Que sucede si ningun nodo tiene la cpu solicitada por un pod?
 
+Se le va a solicitar a kubernetes muchisima CPU, es decir muchas unidades mayores a las que tienen nuestros nodos. Se le va a solicitar 100 CPUs por ejemplo.
 
+Probablemente este pod no va a encontrar una maquina con 100 CPUs, por que las maquinas probablemente tengan menos, en este caso nuestro nodo.
+
+    kubectl describe node minikube
+
+Capacity:
+  cpu:                5
+  ephemeral-storage:  22747616Ki
+  hugepages-2Mi:      0
+  memory:             4010492Ki
+  pods:               110
+Allocatable:
+  cpu:                5
+  ephemeral-storage:  22747616Ki
+  hugepages-2Mi:      0
+  memory:             4010492Ki
+  pods:               110
+
+
+Por lo tanto pedir 100 CPUs como limite o como request, no tiene ningun sentido.
+
+    kubectl apply -f limit-cpu-2.yaml
+    pod/cpu-demo configured
+
+    kubectl get pods
+    NAME          READY   STATUS    RESTARTS   AGE
+    cpu-demo      1/1     Running   0          45m
+    cpu-demo2     1/1     Running   0          6m47s
+    memory-demo   0/1     Pending   0          11h
+
+Lo que sucede es que ninguno de lso nodos tiene 100 CPUs. POr lo tanto el scheduler de kubernetes no encuentra donde colocar este pod.
 
 
 ### 94. QoS Classes
+
+    kubectl get pods cpu-demo2 -o yaml | grep -i qos
+    qosClass: Burstable
+
+A veces aparece:
+
+    qosClass: BestEffort
+
+**¿De que depende esta clase?**
+
+Son clases en las que entra un pod dependiendo de su configuracion en limites.
+
+- Guaranteed: Significa que tiene garantizados los mismos recursos en limits y lso mismos recursos en CPU. Si mi pod tiene los mismos limits y los mismos request significa que es un pod Guaranteed. (Tiene garantizados 700 milicores y 200 Mb de RAM.)
+
+- Burstabled: Significa que puede aumentar o subir,  es cuando el limite es mayor al request. (Cuando se tiene un request por ejemplo de 100 Mb y tiene tiene un limite por ejemplo de 200 Mb significa que el pod esta garantizado en 100, pero todavia puede subir a 200, esto da una idea de que es busrtable.)
+
+- BestEffort: Son lso pods que no definen ningun tipo de limites, por lo tanto el scheduller va a hacer el mejor esfuerzo para colocarlos en los nodos donde deberian ir. estos pods son los mas peligrosos, por lo tanto pueden consumir y consumir recursos hasta el punto de colapsar un nodo.
 
 
 ## Section 13: LimitRange - Uso de recursos a nivel de objetos

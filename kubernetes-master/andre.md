@@ -1993,16 +1993,115 @@ Son clases en las que entra un pod dependiendo de su configuracion en limites.
 Como limitar recursos pero ahora enfocados en namespaces.
 
 LimitRange es un objeto en Kubernetes que permite controlar objetos a nivel de objetos.
-Se tiene un namespace llamado CI, y dentro de este namespace se quieren colocar constraints o limitantes, se quieren aplicar politicas o limits. Se pueden colocar valores por defecto en temas de limite, es decir yo quiero que cualquier pod que se cree en este namespace,  y que no tenga un  request o un limite de memoria o de CPU, yo puedo automaticamente asignarle un valor, es decir si no le colocan un valor, se lee la configuracion del limitRange y se le aplican al pod esos limites por defecto. Otra funcionalidad es que podemos, tambien definirle a este pod un  minimo de recursos y tambien un maximo. COmo se vio en un caso anterior se puede asignar a una maquina 1000 CPUs, pero ninguna maquina tiene 1000 CPUs, por lo tanto si se aplica una politica de maximo (1 CPU por ejemplo) , si alguien pide 2 CPUs va a encontrar un error y no va a poder crear el pod, es decir que eso se aplica a nivel del objeto, ni siquiera dejar crear el objeto, se puede decir que el limitRange nos ayuda a controlar las configuraciones o inyectar valores.
-
-
+Se tiene un namespace llamado CI, y dentro de este namespace se quieren colocar constraints o limitantes, se quieren aplicar politicas o limits. Se pueden colocar valores por defecto en temas de limite, es decir yo quiero que cualquier pod que se cree en este namespace,  y que no tenga un  request o un limite de memoria o de CPU, yo puedo automaticamente asignarle un valor, es decir si no le colocan un valor, se lee la configuracion del limitRange y se le aplican al pod esos limites por defecto. Otra funcionalidad es que podemos, tambien definirle a este pod un  minimo de recursos y tambien un maximo. COmo se vio en un caso anterior se puede asignar a una maquina 1000 CPUs, pero ninguna maquina tiene 1000 CPUs, por lo tanto si se aplica una politica de maximo (1 CPU por ejemplo) , si alguien pide 2 CPUs va a encontrar un error y no va a poder crear el pod, es decir que eso se aplica a nivel del objeto, ni siquiera dejar crear el objeto, se puede decir que el limitRange nos ayuda a controlar las configuraciones o inyectar valores a nivel objeto.
+Es decir yo puedo crear otro pod aqui y las mismas politicas van a aplicar, adiocionalmente si no tiene limites puedo colocarlos por default, puedo validar que el minimo de recursos sea el que yo defini, o tambien puedo validar que el maximo de recursos no sobrepase el que yo defini. Todas estas opciones son "opcionales". 
 
 
 ### 96. Aplica valores por defecto los pods que no definan limites
 
+Se va a crear el primer limitRange y se analizara como funciona el tema de la memoria por default y de la CPU por default,
+
+El limitRange opera solo en los objetos del namespace donde es creado, asi que si se crea un limitRange en el namespace por Default, solamente va a afectar a los objetos del Namespace por default, en este caso en el namespace dev.
+
+    kubectl get limitrange -n dev
+    NAME                  CREATED AT
+    mem-cpu-limit-range   2025-10-05T02:40:28Z
+
+
+    kubectl describe limitrange mem-cpu-limit-range -n dev
+    Name:       mem-cpu-limit-range
+    Namespace:  dev
+    Type        Resource  Min  Max  Default Request  Default Limit  Max Limit/Request Ratio
+    ----        --------  ---  ---  ---------------  -------------  -----------------------
+    Container   cpu       -    -    500m             1              -
+    Container   memory    -    -    256Mi            512Mi          -
+
+
+**Esto va aplicar solamente cuando se defina un contenedor que no defina limites, estos valores se van a aplicar por defecto.**
+
+
+https://kubernetes.io/docs/tasks/
+
+
 ### 97. Valida el funcionamiento de los limites por defecto 
 
+Se va a crear un pod sin ningun tipo de limites, y se va a ver como funciona esto de limitRange actuando en tiempo real
+
+    $ kubectl apply -f default-cpu-mem.yaml 
+    namespace/dev unchanged
+    limitrange/mem-cpu-limit-range unchanged
+    pod/podtest3 created
+
+    $ kubectl get limitrange -n dev
+    NAME                  CREATED AT
+    mem-cpu-limit-range   2025-10-05T02:40:28Z
+
+    kubectl describe limitrange mem-cpu-limit-range -n dev
+    Name:       mem-cpu-limit-range
+    Namespace:  dev
+    Type        Resource  Min  Max  Default Request  Default Limit  Max Limit/Request Ratio
+    ----        --------  ---  ---  ---------------  -------------  -----------------------
+    Container   cpu       -    -    500m             1              -
+    Container   memory    -    -    256Mi            512Mi
+
+
+Se compara y en efecto se cumple:
+
+    $ kubectl get pod podtest3 -o yaml -n dev | grep -i limits -C3
+        imagePullPolicy: IfNotPresent
+        name: cont1
+        resources:
+        limits:
+            cpu: "1"
+            memory: 512Mi
+        requests:
+
+    $ kubectl get pod podtest3 -o yaml -n dev | grep -i requests -C3
+        limits:
+            cpu: "1"
+            memory: 512Mi
+        requests:
+            cpu: 500m
+            memory: 256Mi
+        terminationMessagePath: /dev/termination-log
+
+
+Si se crea un pod que no definan ningun limite, automaticamente el limitRange va a inyectar esa data en al configuracion enviada hacia la APi de Kubernetes para que se satisfaga el limit range (los valores deseados por defecto) contra los valores que va a sumir o que va a heredar el pod desde esta configuracion.
+
+Ahora se creara un pod en el namespace por default:
+
+    kubectl run podtest3 --image=nginx:alpine -ti --rm -- sh
+
+
+Los nombres de los recursos pueden ser distintos si estan en namespaces distintos, es decir en un namespace no podemos tener 2 objetos con el mismo nombre, pero en 2 namespaces distintos si.
+
+    $ kubectl get pods
+    NAME          READY   STATUS    RESTARTS   AGE
+    podtest3      1/1     Running   0          2m28s
+
+    $ kubectl get pod podtest3 -o yaml | grep -i limits -C3
+
+    $ kubectl get pod podtest3 -o yaml | grep -i requests -C3
+
+El limitRange solamente funciona en los objetos donde el limit range esta desplegado.
+
+    kubectl describe ns default
+    Name:         default
+    Labels:       kubernetes.io/metadata.name=default
+    Annotations:  <none>
+    Status:       Active
+
+    No resource quota.
+
+    No LimitRange resource.
+
+Pero si se describe el namespace de dev, si aparece un limitRange aplicado.
+
+
 ### 98. Crea un limitRange con valores minimos y maximos
+
+LimitRange como crear valores minimos y valores maximos, a erst epunto ya se crearon valores por defecto.
+
 
 ### 99. Valida el funcionamiento de las politicas de minimi/macimo de un limitRange
 

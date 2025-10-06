@@ -2100,10 +2100,137 @@ Pero si se describe el namespace de dev, si aparece un limitRange aplicado.
 
 ### 98. Crea un limitRange con valores minimos y maximos
 
-LimitRange como crear valores minimos y valores maximos, a erst epunto ya se crearon valores por defecto.
+> min-max-limits.yaml
+
+LimitRange como crear valores minimos y valores maximos, en este punto ya se crearon valores por defecto.
+
+    kubectl get limitranges -n prod
+    NAME      CREATED AT
+    min-max   2025-10-06T05:00:15Z
+
+Como no se definio un valor por defecto se esta tomando el maximo valor permito. 
+
+    $ kubectl describe limitranges min-max -n prod
+    Name:       min-max
+    Namespace:  prod
+    Type        Resource  Min   Max  Default Request  Default Limit  Max Limit/Request Ratio
+    ----        --------  ---   ---  ---------------  -------------  -----------------------
+    Container   cpu       100m  1    1                1              -
+    Container   memory    100M  1Gi  1Gi              1Gi 
+
+Se puede describir el namespace para ver los limitranges que tiene configurado:
+
+    kubectl describe limitranges min-max -n prod
+    Name:       min-max
+    Namespace:  prod
+    Type        Resource  Min   Max  Default Request  Default Limit  Max Limit/Request Ratio
+    ----        --------  ---   ---  ---------------  -------------  -----------------------
+    Container   cpu       100m  1    1                1              -
+    Container   memory    100M  1Gi  1Gi              1Gi            -
+
 
 
 ### 99. Valida el funcionamiento de las politicas de minimi/macimo de un limitRange
+
+Se va a empezar a probar como funciona esto de los limites del minimo y maximo valor en un limitRange.
+
+No se deberia de tener error por que los valores estand entro del minimo y maximo permitido.
+
+    spec:
+    containers:
+    - name: cont1
+        image: nginx:alpine
+    resources: 
+        limits:
+        memory: "500M"
+        cpu: 0.5
+        requests:
+        memory: 400M
+        cpu: 0.3
+
+    kubectl apply -f min-max-limits.yaml 
+    namespace/prod unchanged
+    limitrange/min-max configured
+    pod/podtest3 created
+
+
+El valor maximo es 1 Gb de RAM y el valor de cpu maximo es 1. Se va a intentar superar 
+
+
+Los pods mismos no pueden hacer estos cambios, solo los replicasets o los deployments que estan mas arriba si. Se debe de utilizar un objeto de mayor nivel para que lo actualice.
+
+**Se elimina el pod de forma manual**
+
+Luego se obtiene un nuevo error pero del limitrange:
+
+    kubectl apply -f min-max-limits.yaml 
+    namespace/prod unchanged
+    limitrange/min-max configured
+    Error from server (Forbidden): error when creating "min-max-limits.yaml": pods "podtest3" is forbidden: [maximum memory usage per Container is 1Gi, but limit is 2G, maximum cpu usage per Container is 1, but limit is 2]
+
+Esta prohibido, el maximo consumo de cpuy por contenedor es de 1.
+
+Esa es la idea del limitrange, delimitar los recursos para garantizar que un manifiesto no cree un objeto se exceda en consumo de recursos.
+
+
+**Probar cuando los limites son menores al minimo**
+
+Se modifican los parametros:
+
+    spec:
+    containers:
+    - name: cont1
+        image: nginx:alpine
+        resources: 
+        limits:
+            memory: "50M"
+            cpu: "50m"
+        requests:
+            memory: 400M
+            cpu: "0.3"
+
+
+    kubectl apply -f min-max-limits.yaml 
+    namespace/prod unchanged
+    limitrange/min-max configured
+    The Pod "podtest3" is invalid: 
+    * spec.containers[0].resources.requests: Invalid value: "300m": must be less than or equal to cpu limit of 50m
+    * spec.containers[0].resources.requests: Invalid value: "400M": must be less than or equal to memory limit of 50M
+
+No se puede decir que el limite sea menor que el request, asi que se va a eliminar el request.
+
+    spec:
+    containers:
+    - name: cont1
+        image: nginx:alpine
+        resources: 
+        limits:
+            memory: "50M"
+            cpu: "50m"
+        # requests:
+        #   memory: 400M
+        #   cpu: "0.3"
+
+
+    kubectl apply -f min-max-limits.yaml 
+    namespace/prod unchanged
+    limitrange/min-max configured
+    Error from server (Forbidden): error when creating "min-max-limits.yaml": pods "podtest3" is forbidden: [minimum cpu usage per Container is 100m, but request is 50m, minimum memory usage per Container is 100M, but request is 50M]
+
+El minimo uso de cpu por contenedor es 100m pero se estan solicitando 50m.
+El minimo uso de memoria por contenedor es 100M, se estan solicitando 50M.
+
+Asi es como se usan los limit ranges para controlar un minimo, un maximo y un valor por defecto, en tema de recursos en pods.
+
+
+
+
+
+
+
+
+
+
 
 
 ## Section 14: ResourceQuota - Agrega limites a nivel de namespace

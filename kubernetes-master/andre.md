@@ -2252,7 +2252,20 @@ namespace:
 
 Pero que pasa si tu limite es de 1 CPU, y alguien crea un deployment con 200 replicas?
 
-En ese caso vas a consumir 200 CPUs
+En ese caso vas a consumir 200 CPUs.
+
+Asiq ue resources quota viene a ayudarnos con ese problema. Ya no va a actuar a nivel de objeto sino que va a actuar a nivel de namespace. y va a decri, "aca en este namespace se va a permitir como maximo el uso de 3 CPUs y como maximo el uso de 5 GB de ram"
+
+¿Como se van a distribuir eso ustedes? Yo no se.
+
+El resource quota lo que hace es limitar, la sumatoria de todos los recursos individuales. 
+
+Cuando yo quiera crear otro pod para crear otro CPU, el resource quota por que la quota para este namespace es de 3 CPUs  y tu ya quieres consumir 4, asi que lo siento mucho pero lo maximo en este namespace es 3 asi que el nuevo pod va a dar error y no va a poder crearse.
+
+Un resource quota no es un reemplazo del limit range, por el contrario es un objeto que funciona a nivel de namespace y que en conjunto con el limit range nos ayuda a tener un control, en nuestro cluster en nuestro namespace en especifico.
+
+En este caso el limit range opera a nivel de objeto dentro del namepsace y el resource quota opera a nivel de namespace, independiente del numero de objetos que hayan dentro del namepsace 
+
 
 
 

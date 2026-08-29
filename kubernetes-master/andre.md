@@ -912,7 +912,7 @@ Se crea un servicio en frente del deployment del backend, y se le hace request a
 
 ClusterIP: Es una IP virtual, que kubernetes le asigna al servicio, esta IP es permanente en el tiempo, Kubernetes se va a encargar de mantener esta IP, esta IP es interna al cluster, es decir que utilizando nuestra IP o una IP externa no vamos a poder acceder a ella.
 
-EL profesor si puede acceder con la IP del servicio y el puerto 8080 desde su browser al servidor web nginx (POr que la IP es privada y se esta ejecutando en la maquina local), en mi caso no funciona.
+El profesor si puede acceder con la IP del servicio y el puerto 8080 desde su browser al servidor web nginx (POr que la IP es privada y se esta ejecutando en la maquina local), en mi caso no funciona.
 
 Posibles razones:
 
@@ -2224,19 +2224,37 @@ Asi es como se usan los limit ranges para controlar un minimo, un maximo y un va
 
 
 
-
-
-
-
-
-
-
-
-
 ## Section 14: ResourceQuota - Agrega limites a nivel de namespace
 
 
 ### 100. ¿Que es un ResourceQuota?
+
+Objeto
+
+¿Cual es la diferencia con un Limit rage?
+
+Un limit range es un objeto que funciona en un namespace que afecta todos los objetos dentro de un namespace pero los afecta a nivel individual es decir a nivel de objeto.
+Yo creo un pod, ese pod va a estar sujeto a las politicas de cpu, memoria, pero solamernte aplican en ese pod. 
+
+POr el contrario un resource quota aplica en general, al nivel del namespace 
+
+
+
+Un limit range es util para limitar los objetos individualmente.
+
+namespace:
+
+1 pod => 1 CPU
+1 pod => 1 CPU
+1 pod => 1 CPU
+1 pod => 1 CPU
+
+
+Pero que pasa si tu limite es de 1 CPU, y alguien crea un deployment con 200 replicas?
+
+En ese caso vas a consumir 200 CPUs
+
+
 
 
 ### 101. Crea tu primer Resource Quota  

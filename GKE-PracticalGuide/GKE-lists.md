@@ -5,3 +5,7 @@
 - Autopilot Cluster
 - Zonal
 - Regional
+
+- Kubernetes Version
+- Release Channel
+

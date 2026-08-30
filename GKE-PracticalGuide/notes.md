@@ -192,7 +192,130 @@ En la práctica, el canal también determina cuándo y con qué frecuencia GKE a
 
 ### 15. Creating a Standard Cluster - Part 2
 
+Bienvenido de nuevo. Continuemos con la configuración de un clúster estándar de GKE centrándonos en la sección de pools de nodos. La opción de Flota (Fleet) la omitiremos por ahora, ya que corresponde a la gestión multiclúster de GKE Enterprise y Anthos, la cual se tratará en una sección posterior del curso.
 
+Un pool de nodos es un conjunto de máquinas virtuales que actúan como nodos trabajadores dentro del clúster. Su propósito principal es brindar la flexibilidad de agrupar nodos con diferentes características según la carga de trabajo: por ejemplo, nodos optimizados para memoria para aplicaciones de alto consumo, o nodos optimizados para CPU para tareas intensivas de cómputo. Kubernetes permite luego asignar los pods a nodos específicos utilizando mecanismos como Node Selectors, Node Affinity, Taints y Tolerations.
+
+Por defecto, GKE sugiere crear un pool único denominado "default-pool". Al configurar el tamaño del pool en un clúster regional, la cantidad de nodos especificada se aplica por cada zona seleccionada. Si se configuran 2 zonas y se especifica 1 nodo por zona, el clúster tendrá un total de 2 nodos. No es posible asignar nodos de forma asimétrica entre zonas en la consola.
+
+En cuanto al escalado y automatización, la función Cluster Autoscaler permite a GKE ajustar el número de nodos según la demanda. Para entornos de prueba mantendremos el autoscaling desactivado. Por otro lado, la opción de autorreparación (Auto-repair) viene activada por defecto para sanear nodos con fallos automáticamente.
+
+Respecto a las estrategias de actualización del pool de nodos (Upgrade Strategies) para evitar la interrupción del servicio (downtime):
+
+Surge Update: Agrega un número determinado de nodos con la nueva versión (max surge), migra las cargas de trabajo y luego elimina los nodos antiguos (max unavailable).
+
+Blue-Green Update: Crea un pool secundario completo con la versión nueva. Ambos grupos coexisten temporalmente hasta que se migra todo el tráfico al nuevo pool y se destruye el anterior. Es la opción de mayor disponibilidad pero conlleva un mayor coste temporal por duplicar la infraestructura.
+
+Para la configuración del sistema operativo y hardware de la VM:
+
+SO: Se mantiene Container-Optimized OS (basado en Linux), que es el predeterminado y recomendado, aunque existe soporte para Windows si la carga de trabajo lo requiere.
+
+Tipo de VM: Se selecciona la serie E2 por su relación coste-eficiencia. Para demostración se utiliza e2-medium (1 vCPU, 4 GB RAM).
+
+Disco de arranque: Se reduce el tamaño persistente a 30 GB para optimizar costes. Se deja el cifrado gestionado por Google.
+
+Spot VMs: No se habilitan, ya que Google puede reclamar la VM en cualquier momento, lo cual no es adecuado para servicios que requieran alta disponibilidad.
+
+En la sección de red y capacidad:
+
+Pods por nodo: Se mantiene la capacidad predeterminada (hasta 110 pods por nodo).
+
+Rangos IP: Los nodos utilizan la IP primaria de la VPC, mientras que los pods utilizan el rango secundario para asignar una dirección IP a cada contenedor.
+
+En la sección de seguridad:
+
+Cuenta de Servicio: Por defecto se asigna la cuenta predeterminada de Compute Engine. Aunque para producción se recomienda aplicar el principio de mínimo privilegio creando una cuenta de servicio dedicada con permisos limitados (logging, monitoring), para fines de esta demostración se utiliza la opción por defecto.
+
+Access Scopes: Se mantiene la opción "Allow default access" para otorgar acceso básico a las APIs de Google Cloud.
+
+Shielded VMs: Se deja la protección integrada para la integridad del firmware.
+
+Finalmente, en la sección de Metadatos se pueden configurar etiquetas (Labels) y restricciones (Taints) para controlar la programación de pods, temas que se profundizarán más adelante mediante comandos de kubectl.
+
+
+¿Qué es Fleet?
+
+Es una forma de agrupar lógicamente varios clusters (de uno o más proyectos) para administrarlos como una unidad: aplicar políticas consistentes, usar Anthos Service Mesh, Multi-cluster Ingress, etc. Para un solo cluster de pruebas como el tuyo, no aporta nada — por eso el curso lo deja sin marcar y por eso nosotros no lo tocamos al crear diego-cluster (usamos gcloud, que no registra el cluster a ningún fleet por defecto).
+
+¿Qué es un Node Pool? ¿Por qué no aparece en la versión actual?
+
+Un node pool es un grupo de nodos dentro del cluster que comparten la misma configuración (tipo de máquina, disco, imagen del SO, etc.). Un cluster puede tener varios node pools distintos (por ejemplo, uno con VMs pequeñas para cargas livianas y otro con GPU para ML).
+
+Sí existe en la versión actual — no desapareció, solo cambió de ubicación en la navegación. En tu diego-cluster sí tienes un node pool, se llama default-pool (el nombre que gcloud asigna automáticamente cuando no especificas --node-pool-name en la creación). Puedes confirmarlo:
+
+    gcloud container node-pools list --cluster=diego-cluster --zone=us-east1-b
+
+
+¿Dónde está "Enable cluster autoscaling"? ¿Se define al crear o se puede editar después?
+
+Está en la sección de creación bajo Node Pools → [nombre-pool] → Nodes → Size, justo debajo de "Number of nodes (per zone)" (lo ves en tu Image 4, el checkbox "Enable cluster autoscaler").
+
+Se puede hacer en ambos momentos — al crear el cluster, o después editando el node pool existente:
+
+    gcloud container clusters update diego-cluster \
+    --zone=us-east1-b \
+    --enable-autoscaling --min-nodes=1 --max-nodes=5 \
+    --node-pool=default-pool
+
+
+Tu diego-cluster no tiene autoscaling habilitado (no lo pusimos), así que siempre vas a tener exactamente 3 nodos fijos, ni más ni menos — lo cual está bien para tus prácticas de quorum, ya que no quieres que el número de nodos cambie solo mientras estás probando migración de cargas.
+
+
+¿Qué es "Enable auto-repair"?
+
+Si un nodo falla los health checks repetidamente (kubelet no responde, el nodo queda NotReady por mucho tiempo, etc.), GKE automáticamente lo recrea sin que tengas que intervenir. Viene activado por defecto tanto en la consola como al crear con gcloud (nuestro diego-cluster lo tiene activo).
+
+¿Qué es Surge upgrade vs Blue-green upgrade?
+
+Ambas son estrategias para actualizar los nodos (por ejemplo, a una nueva versión de Kubernetes) sin tumbar el cluster completo:
+
+Surge upgrade (la que usa tu cluster por defecto): actualiza los nodos uno por uno en el mismo lugar. Por defecto crea un nodo temporal extra (max-surge=1) mientras actualiza, y no tolera que ningún nodo esté indisponible durante el proceso (max-unavailable=0). Es más rápida y barata.
+Blue-green upgrade: crea un node pool completamente nuevo con la versión actualizada, mantiene el viejo corriendo en paralelo temporalmente, y migra el tráfico gradualmente. Es más seguro para cargas sensibles a interrupciones (puedes hacer rollback fácil si algo sale mal), pero más caro porque duplicas nodos durante la transición.
+
+Sobre "Ubuntu with containerd — soporte para NFS, GlusterFS, XFS"
+
+Es la imagen del sistema operativo del nodo (no del pod). GKE ofrece varias imágenes base para los nodos:
+
+Container-Optimized OS (COS) — la default, hecha por Google, minimalista y más segura, pero con menos flexibilidad de sistema de archivos/paquetes.
+Ubuntu — un SO más completo, con soporte nativo para sistemas de archivos de red como NFS (Network File System) y GlusterFS (sistema de archivos distribuido), y XFS (un sistema de archivos alternativo a ext4, bueno para grandes volúmenes de datos). Útil si tus workloads necesitan montar ese tipo de almacenamiento compartido directamente en el nodo.
+
+
+IP de rango primario vs rango secundario para un pod
+
+Esto es sobre clusters VPC-native (el modo default desde hace años, como viste en uno de los logs anteriores: "VPC-native is the default mode..."). Cada nodo tiene:
+
+Rango primario: la IP normal del nodo en tu VPC (ej. 10.142.0.x).
+Rango secundario para Pods: un rango de IPs alias adicional, dedicado exclusivamente a los pods que corren en ese nodo (cada pod obtiene una IP real y enrutable de este rango, no NAT).
+Rango secundario para Services: otro rango aparte, para las IPs internas de los Service de Kubernetes (ClusterIP).
+
+Esto permite que los pods tengan IPs reales dentro de tu VPC, enrutables directamente sin necesitar overlay networks — es la clave del mensaje que viste antes: "tu Pod address range puede acomodar hasta 1008 nodos", calculado justamente a partir del tamaño de ese rango secundario de pods.
+
+
+Sobre la Service Account
+
+Es la identidad con la que cada nodo (VM) se autentica ante las APIs de Google Cloud — no es una cuenta de usuario, es una cuenta de servicio (machine identity). Cuando un pod necesita, por ejemplo, escribir logs a Cloud Logging, leer un archivo de Cloud Storage, o hablar con otra API de GCP, usa (por defecto) los permisos de esta service account del nodo.
+
+"Compute Engine default service account" (lo que usa tu diego-cluster porque no especificamos otra): es una cuenta genérica con permisos amplios (Editor en proyectos antiguos, o roles bastante permisivos) — cómoda para pruebas, pero no recomendada para producción por exceso de privilegios.
+Lo recomendado en producción es crear una service account dedicada y mínimamente privilegiada (solo los permisos que tu carga de trabajo realmente necesita) y asignarla al node pool.
+
+Para tus prácticas actuales, usar la default está bien — es exactamente el tipo de decisión que en un ambiente real revisarías con más cuidado antes de ir a producción.
+
+
+De todo lo que repasamos, nada era estrictamente necesario que faltara para que el cluster funcione bien para tus prácticas — los defaults de GKE están pensados para ser razonables. Las dos únicas que yo destacaría como mejoras válidas si quieres reforzar el cluster sin tocar su propósito actual:
+
+Master authorized networks (restringir quién puede llegar al API server):
+
+    gcloud container clusters update diego-cluster \
+    --zone=us-east1-b \
+    --enable-master-authorized-networks \
+    --master-authorized-networks=$(curl -s ifconfig.me)/32
+
+Service account dedicada — esta no se puede cambiar en un node pool existente, solo al crear uno nuevo, así que solo aplicaría si en algún momento agregas un node pool adicional o recreas el cluster.
+
+Todo lo demás (release channel, autoscaling, image type, etc.) está correctamente resuelto por los defaults para el propósito que tiene este cluster.
+
+
+    terraform apply -var="machine_type=e2-medium" -var="num_nodes=5"
 
 
 ### 16. Creating a Standard Cluster - Part 3

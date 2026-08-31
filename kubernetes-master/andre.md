@@ -2266,14 +2266,329 @@ Un resource quota no es un reemplazo del limit range, por el contrario es un obj
 
 En este caso el limit range opera a nivel de objeto dentro del namepsace y el resource quota opera a nivel de namespace, independiente del numero de objetos que hayan dentro del namepsace 
 
-
+POr que al resource quota no le inteereza si hay un solo pod, de 2 CPUs
 
 
 
 ### 101. Crea tu primer Resource Quota  
 
+Crear un resource quota
+
+Las cuotas funcionan tambien a nivel de namespace por lo tanto, podemos tomar el limit range 
+
+    ---
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+    name: mem-cpu-demo
+    namespace: uat
+    spec:
+    hard:
+        requests.cpu: "1"
+        requests.memory: 1Gi
+        limits.cpu: "2"
+        limits.memory: 2Gi
+
+
+Se esta diciendo que se van a limitar los request de CPU en todo el namespace a 1 CPU es decir que la suma  de todos los objetos individuales no puede ser mayor a un CPU.
+
+Por lo tanto si tenemos 2 pods y cada uno consume 500, entonces vamos a estar bien por que no estaremos superando este request.
+Por el contrario si tuvieramos 3 pods cada uno consumiendo 500, eso seria en total 1.5 por ende obtendriamosun error.
+
+Lo mismo acontece con los request de memoria, se tiene maximo 1 GB para todo el namespace, eso significa que la sumatoria de todos los recursos individuales no debe ser mayor a 1 GB.
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl describe resourcequotas -n uat mem-cpu-demo
+    Name:            mem-cpu-demo
+    Namespace:       uat
+    Resource         Used  Hard
+    --------         ----  ----
+    limits.cpu       0     2
+    limits.memory    0     2Gi
+    requests.cpu     0     1
+    requests.memory  0     1Gi
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get resourcequotas -n uat
+    NAME           REQUEST                                     LIMIT                                   AGE
+    mem-cpu-demo   requests.cpu: 0/1, requests.memory: 0/1Gi   limits.cpu: 0/2, limits.memory: 0/2Gi   3m34s
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ 
+
+Ahora se van a crear un par de pods para ver como funcionna estos valores vs la confogiracion que nosotrod apliquemos.
+
 
 ### 102. Intenta sobrepasar los limites de tu ResourceQuota
+
+
+res-quota.yaml
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl apply -f res-quota.yaml 
+    namespace/uat unchanged
+    resourcequota/mem-cpu-demo unchanged
+    deployment.apps/deployment-test created
+
+
+    No resources found in uat namespace.
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get deployments.apps -n uat
+    NAME              READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment-test   0/2     0            0           2m52s
+
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl describe deployments.apps -n uat deployment-test
+    Name:                   deployment-test
+    Namespace:              uat
+    CreationTimestamp:      Mon, 31 Aug 2026 15:16:43 -0500
+    Labels:                 app=front
+    Annotations:            deployment.kubernetes.io/revision: 1
+    Selector:               app=front
+    Replicas:               2 desired | 0 updated | 0 total | 0 available | 2 unavailable
+    StrategyType:           RollingUpdate
+    MinReadySeconds:        0
+    RollingUpdateStrategy:  25% max unavailable, 25% max surge
+    Pod Template:
+    Labels:  app=front
+    Containers:
+    nginx:
+        Image:      nginx:alpine
+        Port:       <none>
+        Host Port:  <none>
+        Requests:
+        cpu:         500m
+        memory:      500Mi
+        Environment:   <none>
+        Mounts:        <none>
+    Volumes:         <none>
+    Node-Selectors:  <none>
+    Tolerations:     <none>
+    Conditions:
+    Type             Status  Reason
+    ----             ------  ------
+    Progressing      True    NewReplicaSetCreated
+    Available        False   MinimumReplicasUnavailable
+    ReplicaFailure   True    FailedCreate
+    OldReplicaSets:    <none>
+    NewReplicaSet:     deployment-test-7599fd966 (0/2 replicas created)
+    Events:
+    Type    Reason             Age    From                   Message
+    ----    ------             ----   ----                   -------
+    Normal  ScalingReplicaSet  4m11s  deployment-controller  Scaled up replica set deployment-test-7599fd966 from 0 to 2
+
+Se puede observar el: **ReplicaFailure   True    FailedCreate**
+
+Fallo al crear las replicas, no se tiene mucha informacion, por lo tanto se va a revisar el replicaset.
+
+
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get rs -n uat
+NAME                        DESIRED   CURRENT   READY   AGE
+deployment-test-7599fd966   2         0         0       6m46s
+
+
+Ahora lo describimos:
+
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl describe rs deployment-test-7599fd966 -n uat
+Name:           deployment-test-7599fd966
+Namespace:      uat
+Selector:       app=front,pod-template-hash=7599fd966
+Labels:         app=front
+                pod-template-hash=7599fd966
+Annotations:    deployment.kubernetes.io/desired-replicas: 2
+                deployment.kubernetes.io/max-replicas: 3
+                deployment.kubernetes.io/revision: 1
+Controlled By:  Deployment/deployment-test
+Replicas:       0 current / 2 desired
+Pods Status:    0 Running / 0 Waiting / 0 Succeeded / 0 Failed
+Pod Template:
+  Labels:  app=front
+           pod-template-hash=7599fd966
+  Containers:
+   nginx:
+    Image:      nginx:alpine
+    Port:       <none>
+    Host Port:  <none>
+    Requests:
+      cpu:         500m
+      memory:      500Mi
+    Environment:   <none>
+    Mounts:        <none>
+  Volumes:         <none>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Conditions:
+  Type             Status  Reason
+  ----             ------  ------
+  ReplicaFailure   True    FailedCreate
+Events:
+  Type     Reason        Age                   From                   Message
+  ----     ------        ----                  ----                   -------
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-lqqjl" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-5t8bk" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-4mmm6" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-rdl8j" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-tcs8m" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-pfw6w" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-c749x" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m11s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-52nqk" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  9m10s                 replicaset-controller  Error creating: pods "deployment-test-7599fd966-mcnw8" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+  Warning  FailedCreate  3m43s (x8 over 9m9s)  replicaset-controller  (combined from similar events): Error creating: pods "deployment-test-7599fd966-pvl59" is forbidden: failed quota: mem-cpu-demo: must specify limits.cpu for: nginx; limits.memory for: nginx
+
+
+**replicaset-controller  Error creating: pods**
+
+Cuando creamos un resource quota, si o si debemos definir en el contenedor los request y los limits, por que en el resource quota definimos un limite y un request.
+
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        resources:
+          requests: 
+            memory: 500Mi
+            cpu: 500m
+          limits: 
+            memory: 500Mi
+            cpu: 500m
+
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl apply -f res-quota.yaml 
+namespace/uat unchanged
+resourcequota/mem-cpu-demo unchanged
+deployment.apps/deployment-test configured
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get pods -n uat
+NAME                               READY   STATUS    RESTARTS   AGE
+deployment-test-67796f8cdf-k4sxq   1/1     Running   0          21s
+deployment-test-67796f8cdf-p8zsw   0/1     Pending   0          15s
+
+Se vana tener los pods corriendo sin ningun problema
+
+AL PARECER HAY UN PROBLEMA CON ESTE CLUSTER SE CREO CON LA CAPACIDAD MINIMA 
+
+    kubectl describe node | grep -A 8 "Allocated resources"
+
+Por razones de agilidad voy a cambiar los valores para adaptar el ejercicio.
+
+
+El problema no es tu código YAML ni la cuota de Kubernetes (ResourceQuota). El problema es de capacidad del cluster de GCP (GKE):Tienes un cluster de 3 nodos.Ninguno de los 3 nodos tiene $500\text{m}$ de CPU ni $500\text{Mi}$ de RAM libres de forma individual para ubicar ese segundo pod.Los pods de sistema de GKE (como kube-dns, fluentbit, metrics-server, etc.) y las workloads que ya tenías en el cluster están ocupando la mayoría de la CPU/RAM asignable de tus instancias.
+
+    kubectl rollout restart deployment deployment-test -n uat
+
+> Es por que es un e2-small.
+
+
+Despues del cambio de replica a 5
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl apply -f res-quota.yaml 
+    namespace/uat unchanged
+    resourcequota/mem-cpu-demo unchanged
+    deployment.apps/deployment-test configured
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get pods -n uat
+    NAME                              READY   STATUS    RESTARTS   AGE
+    deployment-test-6dc8f5f99-d48fq   1/1     Running   0          32m
+    deployment-test-6dc8f5f99-g2v77   1/1     Running   0          2m4s
+    deployment-test-6dc8f5f99-htrfm   1/1     Running   0          33m
+    deployment-test-6dc8f5f99-zffgk   1/1     Running   0          85s
+
+
+bacrim nalga
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get deployment.apps -n uat deployment-test
+    NAME              READY   UP-TO-DATE   AVAILABLE   AGE
+    deployment-test   4/5     4            4           67m
+
+
+kubectl get deployment
+kubectl get deployments
+kubectl get deploy
+kubectl get deployment.apps
+
+
+Aca vamos a poder ver el ultimo estado.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get deployment.apps -n uat deployment-test -o yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+    annotations:
+        deployment.kubernetes.io/revision: "5"
+        kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"front"},"name":"deployment-test","namespace":"uat"},"spec":{"replicas":5,"selector":{"matchLabels":{"app":"front"}},"template":{"metadata":{"labels":{"app":"front"}},"spec":{"containers":[{"image":"nginx:alpine","name":"nginx","resources":{"limits":{"cpu":"200m","memory":"250Mi"},"requests":{"cpu":"200m","memory":"250Mi"}}}]}}}}
+    creationTimestamp: "2026-08-31T20:16:43Z"
+    generation: 8
+    labels:
+        app: front
+    name: deployment-test
+    namespace: uat
+    resourceVersion: "1788211187494319019"
+    uid: 55d0749d-c810-4ec1-89c7-86d338cdb58d
+    spec:
+    progressDeadlineSeconds: 600
+    replicas: 5
+    revisionHistoryLimit: 10
+    selector:
+        matchLabels:
+        app: front
+    strategy:
+        rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+        type: RollingUpdate
+    template:
+        metadata:
+        annotations:
+            kubectl.kubernetes.io/restartedAt: "2026-08-31T15:46:45-05:00"
+        labels:
+            app: front
+        spec:
+        containers:
+        - image: nginx:alpine
+            imagePullPolicy: IfNotPresent
+            name: nginx
+            resources:
+            limits:
+                cpu: 200m
+                memory: 250Mi
+            requests:
+                cpu: 200m
+                memory: 250Mi
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+    status:
+    availableReplicas: 4
+    conditions:
+    - lastTransitionTime: "2026-08-31T20:33:18Z"
+        lastUpdateTime: "2026-08-31T20:47:02Z"
+        message: ReplicaSet "deployment-test-6dc8f5f99" has successfully progressed.
+        reason: NewReplicaSetAvailable
+        status: "True"
+        type: Progressing
+    - lastTransitionTime: "2026-08-31T21:17:50Z"
+        lastUpdateTime: "2026-08-31T21:17:50Z"
+        message: Deployment has minimum availability.
+        reason: MinimumReplicasAvailable
+        status: "True"
+        type: Available
+    - lastTransitionTime: "2026-08-31T21:19:47Z"
+        lastUpdateTime: "2026-08-31T21:19:47Z"
+        message: 'pods "deployment-test-6dc8f5f99-njw4x" is forbidden: exceeded quota:
+        mem-cpu-demo, requested: requests.memory=250Mi, used: requests.memory=1000Mi,
+        limited: requests.memory=1Gi'
+        reason: FailedCreate
+        status: "True"
+        type: ReplicaFailure
+    observedGeneration: 8
+    readyReplicas: 4
+    replicas: 4
+    terminatingReplicas: 0
+    unavailableReplicas: 1
+    updatedReplicas: 4
+
+
+**message: 'pods "deployment-test-6dc8f5f99-njw4x" is forbidden: exceeded quota:**
+
+No se puede crear el ultimo pod por que supera los limites asignados.
+
+
 
 
 ### 103. Limita el numero de pods que se pueden crear en un Namespace

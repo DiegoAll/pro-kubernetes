@@ -2727,21 +2727,96 @@ En pocas palabras estos son los rpobes mas comunes en kubernetes,  y los qu vana
 
 
 
+### 106. Crea un LivenessProbe para que ejecute un comando.
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    labels:
+        test: liveness
+    name: liveness-exec
+    spec:
+    containers:
+    - name: liveness
+        image: busybox
+        args:
+        - /bin/sh
+        - -c
+        - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
+        livenessProbe:
+        exec:
+            command:
+            - cat
+            - /tmp/healthy
+        initialDelaySeconds: 5
+        periodSeconds: 5
+
+Ahí lo tienes, en estado 1/1 Running.
+
+El script dentro del contenedor ejecutó el touch /tmp/healthy al arrancar. Durante los primeros 30 segundos, el livenessProbe ejecutará exitosamente el cat /tmp/healthy. Pasados los 30 segundos (cuando el comando ejecute rm -rf /tmp/healthy), la sonda fallará y verás que Kubernetes reiniciará automáticamente el contenedor (incrementando el contador en la columna RESTARTS).
+
+
+    NAME            READY   STATUS    RESTARTS   AGE
+    liveness-exec   1/1     Running   0          3s
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/probes$ kubectl get pods
+    NAME            READY   STATUS    RESTARTS      AGE
+    liveness-exec   1/1     Running   1 (30s ago)   105s
+
+
+Va a encontrar qu el archivo no existe, va a encontrar una falla asi que el liveness probe falla. y el contenedor dentro del pod se ve obligado a  recrearse 
+
+    kubectl describe pod liveness-exec
+
+
+    Events:
+    Type     Reason     Age                   From               Message
+    ----     ------     ----                  ----               -------
+    Normal   Scheduled  5m3s                  default-scheduler  Successfully assigned default/liveness-exec to gke-diego-cluster-default-pool-290fda81-mwq4
+    Normal   Pulled     5m1s                  kubelet            Successfully pulled image "busybox" in 2.005s (2.005s including waiting). Image size: 2236931 bytes.
+    Normal   Pulled     3m48s                 kubelet            Successfully pulled image "busybox" in 361ms (361ms including waiting). Image size: 2236931 bytes.
+    Normal   Pulled     2m33s                 kubelet            Successfully pulled image "busybox" in 312ms (312ms including waiting). Image size: 2236931 bytes.
+    Normal   Pulled     78s                   kubelet            Successfully pulled image "busybox" in 373ms (373ms including waiting). Image size: 2236931 bytes.
+    Warning  Unhealthy  33s (x12 over 4m28s)  kubelet            Liveness probe failed: cat: can't open '/tmp/healthy': No such file or directory
+    Normal   Killing    33s (x4 over 4m18s)   kubelet            Container liveness failed liveness probe, will be restarted
+    Normal   Pulling    3s (x5 over 5m3s)     kubelet            Pulling image "busybox"
+    Normal   Created    3s (x5 over 5m1s)     kubelet            Container created
+    Normal   Started    3s (x5 over 5m1s)     kubelet            Container started
+    Normal   Pulled     3s                    kubelet            Successfully pulled image "busybox" in 317ms (317ms including waiting). Image size: 2236931 bytes.
+
+**Warning  Unhealthy  33s (x12 over 4m28s)  kubelet            Liveness probe failed: cat: can't open '/tmp/healthy': No such file or directory**
+
+
+No existe el archivo por lo tanto nos dice que el contenedor sera reiniciado.
+
+**Normal   Killing    33s (x4 over 4m18s)   kubelet            Container liveness failed liveness probe, will be restarted**
+
+Una vez el contenedor dentor del pod rse reinicie, va a pasar lo mismo. Se va a crear el archivo, por 30 segundos va a estar bien y luego cuando falle el liveness probe, se va a volver a ejecutar. Hasta que caiga en un **backoff** que significa que kubernetes itnento varias veces. Pero que el resultado fue siempre el mismo con el contenedor. Es decir que hay algun error que esta crasheando el contenedor por lo tanto kubernetes va a dejar en algun punto de reiniciar ese contenedor, y va a quedar en un backoff.
+
+Asi que veamos el estado actual del pod, va a ser este va a seguir corriendo. Recordemos que al momento de reiniciarse el contenedor, de nuevo se crea el archivo, se duerme por 30 segundos, y luego eliminamos el archivo, asi que vamos a ver de nuevo el estado del pod.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/probes$ kubectl get pods
+    NAME            READY   STATUS    RESTARTS        AGE
+    liveness-exec   1/1     Running   196 (29s ago)   12h
+
+Describamos el pod y asi es como vemos la funcionalidad del liveness y basicamente lo que kubernetes puede hacer por nosotros es 
+reiniciar el cotnenedor en el pod una vez este falle.
+
+¿Por que puede fallar un contenedor en el pod? Nosa bemos, puede ser que se caiga la aplicacion, que haya un bug, y si es un bug es muy problematico, si fue por carga, un reinicio normalmente lo ayuda, la yutilidad del liveness es muy buena como vemos, garantiza en el tiempo que el pod va a tener un servicio saludable.
+
+
+### 107. LivenessProbe con TCP
 
 
 
 
 
-### 106.
+### 108. LivenessProbe con HTTP
 
 
 
-### 107.
+### 109. Crea un ReadinessProbe
 
 
-
-
-### 108. 
 
 
 

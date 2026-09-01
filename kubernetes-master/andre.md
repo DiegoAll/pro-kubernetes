@@ -2655,17 +2655,39 @@ Es hora de revisar el deployment:
 
 Tambien aparecera un error que indica que se excede la quota.
 
-
-
-
-
-
-
-
+1
 ## Section 15: Health Checks & Probes - Vigila el estado de tus contenedores
 
 
-### 104. 
+### 104.  ¿Que son los Probes y como se ejecutan?
+
+Es basicamente una prueba, un diagnostico que se ejecuta, sobre un contnedor en un podpara ver el estado de ese contenedor para saber si esta bien, para saber que tiene, para ver si esta respondiendo como deberia de responder.
+En kubernetes se tienen varios tipos de probes, de diagnosticos que podemos aplicar sobre los probes, es un diagnostico que realiza el kubelet.
+
+Kubelet es un servivioo que esta corriendo en cada nodo y es el responsable de crear y actualizar los pods en ese nodo. El kubelet es el encargado de ejecutar estos diagnosticos, sobre los contenedores de los pods que nosotros definamos, en este caso lo que va a hacer kubelet es:
+
+Se tiene un pod que tiene un solo contenedor y aca se define un probe y se define tambien un rango de tiempo que va a ser n, es decri cada 5 , 10, 15 20 s ...
+
+Kubelet basado ene ste rangod e tiempo periodicamente va a ir al contenedor dentro del pod a preguntar, 
+
+En caso de que este mal y no responda, va a tomar una acción 
+
+Sencillamenete le pregunta al contenedor el estado,ejecuita el contendor que nosotrod hayamos definido 
+
+Vamos a ver como kubelet ejecuta estos probes dntro de los contenednores de ..
+
+Como lo hace? puede hacerlo de 3 maneras:
+
+- Por medio de un comando, basicamente kubelet va y ejecuta un comando en el contenedor y si el comando devuelve 9 el comando esta bien, si retorna otra cosa esta mal.
+
+- La segunda manera es haciendo un llamado por TCP, es decir ku8belet va al contenedor y le pregunta, tienes el puerto x abierto? si el probe es ok se considera satisfactorio, si el puwerto no responde entonces kubelet asume que hay un problema con el contenedor en el pod
+
+- la ultima forma es por HTTP. kubeletr has un llamado get a un /path, puede ser 
+Si la respuesta esta entre 200 y 399 , se considera saitisfactoria.
+
+si es mayopr a 400 o 500 kubelet asume que hay un problema en el contenedor 
+
+Basicamente estas son las 3 maneras en que kubelet ejecuta un probe en un contenedor de un pod, para saber si esta bien o esta mal. 
 
 
 

@@ -2930,21 +2930,56 @@ Y el livenessProbe lo que va a hacer cada x tiempo es ejecutar una prueba sobre 
 Diferencia entre Readiness y el Liveness
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Section 16: ConfigMaps & Environment Variables - Inyecta datos en tus pods
+
+
+Vamos a aprender a crear variables de en torno en los pods, utilizando manifiestos de kubernetes.
+
+kubectl apply -f env.yaml 
+kubectl exec -it envar-demo -- sh
+
+Se pueden ver las variables de entorno con el comando env
+
+    / # env
+    KUBERNETES_PORT=tcp://34.118.224.1:443
+    KUBERNETES_SERVICE_PORT=443
+    HOSTNAME=envar-demo
+    SHLVL=1
+    HOME=/root
+    PKG_RELEASE=1
+    DYNPKG_RELEASE=1
+    ACME_VERSION=0.4.1
+    TERM=xterm
+    NGINX_VERSION=1.31.4
+    KUBERNETES_PORT_443_TCP_ADDR=34.118.224.1
+    VAR1=valor de prueba 1
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    VAR2=test2
+    NJS_VERSION=1.0.0
+    VAR3=test3
+    KUBERNETES_PORT_443_TCP_PORT=443
+    KUBERNETES_PORT_443_TCP_PROTO=tcp
+    NJS_RELEASE=1
+    KUBERNETES_PORT_443_TCP=tcp://34.118.224.1:443
+    KUBERNETES_SERVICE_PORT_HTTPS=443
+    KUBERNETES_SERVICE_HOST=34.118.224.1
+    PWD=/
+
+Estas variables de entorno son accesibles desde cualquier parte de este contenedor en el pod.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/envs$ kubectl exec -it envar-demo -- sh
+    / # echo $VAR1
+    valor de prueba 1
+    / # echo $VAR2
+    test2
+    / # 
+
+Estas variables estan disponibles globalmente en el contenedor.
+
+
+
+
+
 
 
 
@@ -2996,5 +3031,7 @@ Diferencia entre Readiness y el Liveness
 
 ## Section 29: Bonus
 
+
+### 226.
 
 

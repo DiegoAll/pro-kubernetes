@@ -2691,7 +2691,44 @@ Basicamente estas son las 3 maneras en que kubelet ejecuta un probe en un conten
 
 
 
-### 105.
+### 105. Tipos de probes en Kubernetes
+
+ya sabemos que un probe es ejecuta por kubelet en un contenedor de un pod y que puede ser un comando, un TCP o un HTTP. Ahora, que tipos de probes tenemos?
+
+Liveness: Un diagnostico para validar si la aplicacion esta funcionando como deberia.
+
+Readiness: Es para ver si la aplicacion ya inicio como deberia.
+
+Startup: Es para aplicaciones que son demoradas al iniciar.
+
+que es esto? y cuando deberia usar cual?
+
+Resulta que tenemos nuestro pod y aca esta nuestro contenedor, ahora ya sabemos que podemos ejecutar un Liveness, Readiness o un Startup y podemos decidir si queremos un comando, TCP o HTTP. Es decir que somos libres de elegir como queremos ejecutar el probe,
+
+
+un Liveness probe es una prueba que ejecuta kubelet en el contendor cada n internvalo de tiempo, en esta prueba solo esperamos una respuesta del contenedor,
+
+si es una aplicacion web podemos hacerle un GET a un endpoint por HTTP para esperar una respuesta corecta. que pasa? normalmente en las aplicaciones, en los servicios web, luego de mucho tienpo de servicio, puede que hayan aplicaciones que crasheen no del todo, es decir el servicio web sigue arriba, pero cuando los consultas, te devuelven un 500, Desde el punto de vista del contendor el servicio se esta ejecutnado bien, pero la respuesta que esta devolviendo, es indiferente para el. 
+Desde el punto de vista del contenedor en este caso, el esta ejecutnado su proceso y el piensa que todo esta bien,  nosotros como usuarios sabemos que aunque el servicio esta corriendo, esta devolviendo 500 por cualquier cosa, por cualquier tema que pudo haber ocurrido, entonces con un **liveness** nos aseguramos de reiniciar esta aplicacion, 
+
+Podemos ejecutar un GET liveness probe que sea por HTTP a este contenedor y si nos devuelve 200 entonces esta bien, no hacemos nada, pero si nos devuelve 400 o 500. TEnemos un error y significa que este contendor debe ser reiniciado, o eliminado, por que algo no esta bien. 
+
+Basicamente eso es un liveness probe, asegurarnos de que la aplicacion esta respondiendo, como deberia responder, por lo menos tener un poquito de control y saber que la aplicacion no se ha crasheado,  o que esta funcionando como no deberia de funcionar, liveness es saber que la aplicacion sigue con vida. 
+
+
+Que es el readiness? imaginemos que tenemos un servicio por aca, y tambien imaginemos que no tenemos ningun pod, o esta bien imaginemos que tenemos 2 pods que estan sirviendo request, 2 pods que estan en servicio, ahora digamos que queremos agregar un nuevo pod, pero queremos garantizar que solamente cuando este pod este ready,  este listo va a empezar a recibir request desde el servicio. ahi es donde entra el readiness.
+Es nbasicamente un diagnostico que se ejecuta en el pod, cuando se crea antes de colocarlo como un endpoint valido. Ya sabemos que la manera de obtener la respuesta, puede ser por HTTP, por TCP, o por un comando, dependiendo de lo que configuremos si es un HTTP y no retorna un 200, significa que este pod ya esta listo para empezar a aceptar request, de este servicio, una vez pase el **readiness** lo podemos incluir en este servicio, si no pasa el readineess entonces no se incluye en los endpoints, de este servicio, y en readineess lo mismo ocurre cuando ya tenemos un pod, qure paso por el estado de readiness, y esta conectado a un servicio, es decir esta recibiendo request, si por alguna razon el readiness falla, significa que ese pod, se va a desconectar del servicio, es decir va a eliminar ls entradas que tenga en el endpoint de ese servicio, y va a dejar de recibir request hasta que el readiness, vuelva a funcionar, de esta manera garantizamos que un pod, no va a recibir request, cuando el readiness no se haya completado, es decir que el readiness nos ayuda a garantizar que  erl pod esta listo, para recibir trafico,  en cualquier momento en el tiempo. 
+
+En cosrtas palabras eso es el readiness, un probe que nos ayuda a garantizar, que el servicio dentro del pod, esta listo para recibir request,  
+
+Con el startup ocurre algo muy curiosop, ty es que si el startup esta definido en un manifiesto de kubernetes, es dcir que si nosotros definimos un startup, el readiness y el liveness si estan definidos, se van a pausar, es decir no se van a ejecutar hasta que el startup,  este listo, y que es el startup ? normalmente se utilizan en aplicaciones que demoran mucho en subir, asi que si tenemos un JAr  grande un war muy grande, una aplicacin estilo web logic, podemos utilizar entonces un startup, y le decrimos oye por favor epserat, hasta qeu esta aplciacion suba, cionfrigure todo lo que tiene que configurar, y una vez el probe pase, hay si voy ad esbloquear el readinees, y el liveness, para ver si la aplicacion ya esta lista, para poder colocarla en el servicio, y luego que la coloque para garantizar, qu e siga viva en el tiempo.
+
+En pocas palabras estos son los rpobes mas comunes en kubernetes,  y los qu vana  ver normalmente en la matyoria de partes, y esta es la funcion de cada uno.
+
+
+
+
+
 
 
 

@@ -2918,6 +2918,28 @@ De esta manera es como funcionan los probes en kubernetes Y es como nos ayuda po
 
 ### 109. Crea un ReadinessProbe
 
+ReadinessProbe es muy parecido al LivenessProbe y es normal, no tiene ningun problema. Es muy comun que sean parecidos, que hace el readyness? va a al puerto 8080, cada 10 segundos, a validar que el puertoe ste abierto,  ¿Cual es la diferencia entre el Readiness y el Liveness?
+
+EN primera instancia el readiness va a validar cada 10 segundos, que este puerto este abierto. Y si encuentra algun problema, l no es el encargado de reiniciar el contenedor, por el contrario lo que hace el readinessProbe es desregistrar la IP de los endpoints del servicio para que el pod no reciba mas carga o mas request hasta qeu este en un estado correcto,  asi que el readinessProbe nos garantiza de que en caso de que el pod sufra algun problema y que el probe del readiness no se ejecute correctamente, de una vez el pod va a a quedar fuera de los pods habiulitados, para recibir request desde el servicio 
+
+Readiness se ejecuta en un intervalo de tiempo X y valida, que el servicio este arriba con esta prueba, y si no esta arriba llo que voy a hacer es eliminar la IP del endpoint del servicio,   paara evitar que le lleguen request a un pod que no esta en servicio.
+
+
+Y el livenessProbe lo que va a hacer cada x tiempo es ejecutar una prueba sobre el contenedor, y en caso de que esta no sea satisfactoria,  su mision es reiniciar el contenedor dentro del pod. 
+
+Diferencia entre Readiness y el Liveness
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

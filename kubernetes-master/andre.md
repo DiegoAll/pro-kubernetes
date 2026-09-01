@@ -2589,9 +2589,77 @@ Aca vamos a poder ver el ultimo estado.
 No se puede crear el ultimo pod por que supera los limites asignados.
 
 
-
-
 ### 103. Limita el numero de pods que se pueden crear en un Namespace
+
+
+Vamos a aprender otra utilidad del resource quota , aparte de permitirnos controlar el total de recursos  como CPU y RAM que podemos asignar a un namespace tambien podemos controlar el total de objetos en kubernetes que podemos crear.
+
+Como ya sabemos en un resource quota es valido decir quiero limitar este namespace a 1 CPU, no va a poder consumir mas.
+Al mismo tiempo  este namespace va a ser capaz de tener solamente 3 pods, no va a ser caapz de crear 4 ni 5 y esto pues es una herramienta que nos puede servir en el futuro para una necesidad en especifico,  pero es muy bueno saber que aparte de limitar recursos podemos limtiar objetos tambien, 
+
+    ---
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+    name: qa
+    labels:
+        name: qa
+    ---
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+    name: pod-demo
+    spec:
+    hard:
+        pods: "3"
+
+Vamos a crear un deployment por que no vamos a crear 3 pods a mano. En este dployment se pueden borrar los limites por que no se van a usar.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get -n qa resourcequotas pod-demo
+    NAME       REQUEST     LIMIT   AGE
+    pod-demo   pods: 3/3           105s
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl describe namespaces qa
+    Name:         qa
+    Labels:       kubernetes.io/metadata.name=qa
+                name=qa
+    Annotations:  <none>
+    Status:       Active
+
+    Resource Quotas
+    Name:     pod-demo
+    Resource  Used  Hard
+    --------  ---   ---
+    pods      3     3
+
+    No LimitRange resource.
+
+
+Se puede ver que se tiene el resourceQuota aplicado a nivel de objeto, el hard lo maximo son 3 y tenemos usados 3. En teoria no podemos crear mas pods.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/resource-quota$ kubectl get pods -n qa
+    NAME                            READY   STATUS    RESTARTS   AGE
+    deployment-qa-8c6f547bd-5x74g   0/1     Pending   0          26m
+    deployment-qa-8c6f547bd-bl7px   0/1     Pending   0          26m
+    deployment-qa-8c6f547bd-n8rwn   0/1     Pending   0          26m
+
+
+Ahora se intentan desplegar 4 replicas con esta configuracion.
+
+Al ejecutar de nuevo el manifeisto se puede ver que aun se tienene 3 pods.
+
+Es hora de revisar el deployment:
+
+    kubectl get deployment -n qa deployment-qa -o yaml
+
+Tambien aparecera un error que indica que se excede la quota.
+
+
+
+
+
+
 
 
 ## Section 15: Health Checks & Probes - Vigila el estado de tus contenedores

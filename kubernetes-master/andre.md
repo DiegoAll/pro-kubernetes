@@ -2806,6 +2806,21 @@ reiniciar el cotnenedor en el pod una vez este falle.
 
 ### 107. LivenessProbe con TCP
 
+Como se crea un LivenessProbe con protocolo TCP es decir utilizando un puerto.
+
+En este LivenessProbe se tiene un TCP socket, ya no tenemos un comando se tiene un socket TCP. Oye kubernetes, tyu me vas a ejecutar un LivenessProbe, en este contenedor cada 20 segundos, la primera vez que el contenedor se cree vas a esperar 15 segundos, **(initialDelaySeconds)**, para ejecutar rl primer diagnostico, y lo vas a ejecutar cada 20 segundos contra el puerto 8080. que es donde esta corriendo el servicio en ese contenedor.
+
+
+El resultado de esto en caso de que el púerto falle va a ser el mismo, que vimos con el comando, es decir va a reiniciar el contenedor,  dentro del pod para intentar, revivir de alguna manera la aplicacion.
+
+
+
+
+
+
+
+
+
 
 
 

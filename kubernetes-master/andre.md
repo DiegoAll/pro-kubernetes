@@ -2814,18 +2814,105 @@ En este LivenessProbe se tiene un TCP socket, ya no tenemos un comando se tiene 
 El resultado de esto en caso de que el púerto falle va a ser el mismo, que vimos con el comando, es decir va a reiniciar el contenedor,  dentro del pod para intentar, revivir de alguna manera la aplicacion.
 
 
-
-
-
-
-
-
-
-
-
-
-
 ### 108. LivenessProbe con HTTP
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    labels:
+        test: liveness
+    name: liveness-http
+    spec:
+    containers:
+    - name: liveness
+        image: registry.k8s.io/liveness
+        args:
+        - /server
+        livenessProbe:
+        httpGet:
+            path: /healthz
+            port: 8080
+            httpHeaders:
+            - name: Custom-Header
+            value: Awesome
+        initialDelaySeconds: 3
+        periodSeconds: 3
+
+El /server es propio de la imagen.
+
+POr lo tanto se puede hacer un GET al path /healthz en el puerto 8080, incluso se puedne aplicar custom headers,  y aca tenemos lo que nos compete la demora inicial, 
+que significa cuando inicia el pod, cuando se crea por primera vez espera 3 segundos y luego aplica el livenessProbe, luego de este el LivenessProbe se va a ejecutar cada 3 segundos, este valor no necesariamente titne que ser el mismo siempre, esto depende muchod e como sea su aplicaicon y cuanto tarde ene star lista, 
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/probes$ kubectl get pods
+    NAME            READY   STATUS             RESTARTS         AGE
+    goproxy         1/1     Running            0                17m
+    liveness-exec   0/1     CrashLoopBackOff   208 (115s ago)   12h
+    liveness-http   1/1     Running            0                15s
+
+Un vez se descargue el pod va a iniciar y el LivenessProbe despues de 3 segundos, va a empezar a hacer su tarea 
+
+    Events:
+    Type     Reason     Age                 From               Message
+    ----     ------     ----                ----               -------
+    Normal   Scheduled  105s                default-scheduler  Successfully assigned default/liveness-http to gke-diego-cluster-default-pool-290fda81-7lkr
+    Normal   Pulling    105s                kubelet            Pulling image "registry.k8s.io/e2e-test-images/agnhost:2.40"
+    Normal   Pulled     102s                kubelet            Successfully pulled image "registry.k8s.io/e2e-test-images/agnhost:2.40" in 2.498s (2.498s including waiting). Image size: 51155161 bytes.
+    Warning  Unhealthy  30s (x12 over 90s)  kubelet            Liveness probe failed: HTTP probe failed with statuscode: 500
+    Normal   Killing    30s (x4 over 84s)   kubelet            Container liveness failed liveness probe, will be restarted
+    Warning  BackOff    29s (x2 over 30s)   kubelet            Back-off restarting failed container liveness in pod liveness-http_default(7e450831-07e9-4829-bf5f-bc30b2579d18)
+    Normal   Created    8s (x5 over 102s)   kubelet            Container created
+    Normal   Started    8s (x5 over 102s)   kubelet            Container started
+    Normal   Pulled     8s (x4 over 83s)    kubelet            Container image "registry.k8s.io/e2e-test-images/agnhost:2.40" already present on machine and can be accessed by the pod
+
+
+kubectl get pods liveness-http -o yaml | grep -i liv -A12 
+
+    --
+        name: liveness
+        ready: false
+        resources: {}
+        restartCount: 6
+        started: false
+        state:
+        waiting:
+            message: back-off 2m40s restarting failed container=liveness pod=liveness-http_default(7e450831-07e9-4829-bf5f-bc30b2579d18)
+            reason: CrashLoopBackOff
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/probes$ kubectl get pods
+    NAME            READY   STATUS             RESTARTS        AGE
+    goproxy         1/1     Running            0               24m
+    liveness-exec   0/1     CrashLoopBackOff   210 (68s ago)   13h
+    liveness-http   0/1     CrashLoopBackOff   6 (2m20s ago)   7m8s
+
+Si se esta haciendo el LivenessProbe que ene ste caso tiene un FailureThereshold: 3
+
+    livenessProbe:
+      failureThreshold: 3
+
+Este servicio tiene algo en particular, 
+
+
+    Events:
+    Type     Reason     Age                    From               Message
+    ----     ------     ----                   ----               -------
+    Normal   Scheduled  11m                    default-scheduler  Successfully assigned default/liveness-http to gke-diego-cluster-default-pool-290fda81-7lkr
+    Normal   Pulling    11m                    kubelet            Pulling image "registry.k8s.io/e2e-test-images/agnhost:2.40"
+    Normal   Pulled     10m                    kubelet            Successfully pulled image "registry.k8s.io/e2e-test-images/agnhost:2.40" in 2.498s (2.498s including waiting). Image size: 51155161 bytes.
+    Normal   Created    8m15s (x6 over 10m)    kubelet            Container created
+    Normal   Started    8m15s (x6 over 10m)    kubelet            Container started
+    Normal   Killing    7m56s (x6 over 10m)    kubelet            Container liveness failed liveness probe, will be restarted
+    Warning  Unhealthy  6m20s (x19 over 10m)   kubelet            Liveness probe failed: HTTP probe failed with statuscode: 500
+    Warning  BackOff    4m46s (x9 over 9m47s)  kubelet            Back-off restarting failed container liveness in pod liveness-http_default(7e450831-07e9-4829-bf5f-bc30b2579d18)
+    Normal   Pulled     3m34s (x7 over 10m)    kubelet            Container image "registry.k8s.io/e2e-test-images/agnhost:2.40" already present on machine and can be accessed by the pod
+
+
+**Warning  Unhealthy  6m20s (x19 over 10m)   kubelet            Liveness probe failed: HTTP probe failed with statuscode: 500
+  Warning  BackOff    4m46s (x9 over 9m47s)  kubelet            Back-off restarting failed container liveness in pod liveness-http_default(7e450831-07e9-4829-bf5f-bc30b2579d18)**
+
+Como retorno un status code 500 el container va a ser reiniciado. 
+
+De esta manera es como funcionan los probes en kubernetes Y es como nos ayuda por lo menos la aplicacion va a ser reiniciada cuando un probe no devuelva lo que deberia devolver.
 
 
 

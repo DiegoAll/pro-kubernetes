@@ -54,9 +54,22 @@ spec:
       containers:
         - name: nginx
           image: nginx:alpine
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: vars
+                  key: db_host
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: vars
+                  key: db_user
           volumeMounts:
             - name: nginx-vol
               mountPath: /etc/nginx/conf.d/
+            - name: script-vol
+              mountPath: /opt
       volumes:
         - name: nginx-vol
           configMap:
@@ -64,3 +77,9 @@ spec:
             items:
               - key: nginx
                 path: default.conf
+        - name: script-vol
+          configMap:
+            name: vars
+            items:
+              - key: script
+                path: script.sh

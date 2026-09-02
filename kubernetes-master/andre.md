@@ -3523,10 +3523,162 @@ Estas 2 llaves nos van a servir en nuestro ejemplo como varables de entorno, y e
 
 ### 119. Configura tu pod para consumir el ConfigMap por medio de variables de entorno
 
+Asi estaba:
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+    name: nginx-config
+    labels:
+        app: front
+    data:
+    nginx: |
+        server {
+            listen       8080;
+            server_name  localhost;
+
+            location / {
+                root   /usr/share/nginx/html;
+                index  index.html index.htm;
+            }
+
+            error_page   500 502 503 504  /50x.html;
+            location = /50x.html {
+                root   /usr/share/nginx/html;
+            }
+
+        }
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+    name: vars
+    labels:
+        app: front
+    data:
+    db_host: dev.host.local
+    db_user: dev_user
+    script: |
+        echo DB host es $DB_HOST y DB user es $DB_USER > /usr/share/nginx/html/test.html
+
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+    name: deployment-test
+    labels:
+        app: front
+    spec:
+    replicas: 1
+    selector:
+        matchLabels:
+        app: front
+    template:
+        metadata:
+        labels:
+            app: front
+        spec:
+        containers:
+            - name: nginx
+            image: nginx:alpine
+            volumeMounts:
+                - name: nginx-vol
+                mountPath: /etc/nginx/conf.d/
+        volumes:
+            - name: nginx-vol
+            configMap:
+                name: nginx-config
+                items:
+                - key: nginx
+                    path: default.conf
+
+
+Vamos a montar estas llaves en nuestor pod como variables de entorno.  ¿Como montamos variables de entorno en un pod?
+
+          env:
+            - name: SPECIAL_LEVEL_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: special-config
+                  key: special.how
+
+Vamos a ver como, se utiliza. Aca tenemoe el nombre de la vatriable de wentrno que va a estar disponible en el pod. **SPECIAL_LEVEL_KEY**
+
+En este caso nosotros queremos $DB_HOST y $DB_USER
+
+Iniciemos con DB_HOST
+El valor va a venir de un cofigMap:  configMapKeyRef  llamado vars
+y este e el que vamos a usar para tomar estos valores.
+
+y la llave que vamos a utilizar del configMap **vars** es **db_host**
+es el nopmbre de nuestro host de prueba
+
+Ahora vamos a hacer exactamente lo mismo para la variable de entrono DB_USER.
+
+Asi se llamaron las lalves en el configMap
+
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: vars
+                  key: db_host
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: vars
+                  key: db_user
+
+
+Ya se tiene disponible en el contenedor disponible la variable DB_HOST. Con la llave db_host del configmap vars.
+
+y tenemos tambien la variable de entorno DB_USER disponible tomando el valor desde el configMap vars utilizando la llave db_user.
+
+ALgo mas que queremos hacer es montar este script que nosotros creamos para validar si efectivamente estas variables estan bien.
+Asi que queremos tomar desde el configMap vars, esta llave script, y montarla como un archivo en cualquier parte.
+
+¿Como lo hacemos?
+
+Tomemos este ejemplo de volumenes, y creamos otro.
+
+            - name: script-vol
+              mountPath: /opt
+
+Este script-vol no esta en ninguna parte por ende tenemos que crearlo.
+
+ASi, este scritp.sh va a estar disponible, en /opt/script.sh
+
+
+
+Estos dos valores de este configMap que se llama vars
+
+  db_host: dev.host.local
+  db_user: dev_user
+
+Son valores que vamos a utilizar como variabkes de entorno 
+
+Como las usamos como variables de entorno?
+
+definimos env, DB_HOST  y decimos que configMap queremos usar y que llave para darle un valor a esta variable DB_HOST, lo mismo con DB_USER.
+
+Ahora nostors creamos un pequeño script, sencillamanere crear un nuevo archivo, 
+escribiendo las dos variables que van a estar disponibles, dentro del pod.
+
+Este script no lo queremos usar como variable, sino como un script, es decir como un archivo. Por lo tanto lo vamos a montar como una archivo.
+
+y como lo montamos? en la seccion de volumeMounts del contenedor y creamos uno nuevo con esta instrucción y un path cualquiera que queramos.
+
+            - name: script-vol
+              mountPath: /opt
+
+Y debajo de la seccion de volumenes, especificamos que significa script-vol.
+Y decimos que script va a tener el valor de configMap que se llama vars y va a utilizar la llave script. y que al final lo que queremos es que el archivo dentro del contenedor se llame script.sh.
 
 
 
 ### 120. Valida que todas las Variables y los Mount funcionen bien.
+
+
 
 
 

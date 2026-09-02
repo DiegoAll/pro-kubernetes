@@ -3286,9 +3286,53 @@ esta es la forma como se crea un configmap desde la linea de comandos.
 recordemos que finalmente un configmap es clave-valor.
 
 
-
-
 ### 116. Asocia el ConfigMap que creaste a un Volumen en un Pod
+
+Como consumir un configmap desde un pod, ya se tiene el configmap creado ahora hace falta crear un pod. Se debe crear un deployment por que probablemente se necesiten actualizar un par de cosas despues
+
+Recordar que hay 2 maneras de acceder a un configMap desde un cotnenedor.
+La primera es un Mount como un volumen, y la segunda es con una variable de entorno.
+
+Iniciemos entonces con un volumen por que lo que estamos amnejando es un archivo de texto, asi que queremos crear un archivo y no una variable, 
+
+
+          volumeMounts:
+
+Significa que volumenes vamos a montar dentro del contenedor de este pod, 
+
+
+              mountPath: /etc/config
+
+Significa donde va a estar esto dentro del contenedor. EN que carpeta, es importante saber que aca se deben colocar solamente carpetas.
+
+este sera el nuevo mountpath: /etc/nginx/conf.d/
+
+para el archivo de configuracion de nginx.
+
+
+la seccion de volumenes esta a nivel de contenedores.
+
+Aca se va a definir un volumen y vamos a decir que el volumen, va a tener un nombre y debe ser este mismo nombre de aca.  nginx-vol
+
+
+Y lo que estamos haceindoe s directamente desde el contenedor, llamando al volume nginx-vol que es este que estamos creando actualmente.
+
+
+y Luego se tiene esta opcion de configMap 
+
+Nosotros en este volumen queremos tomar el configMap que se llama: nginx-config
+
+
+Ahora se tienen los items, son basicamente, las llaves que estan dentro del configmap,
+
+
+En este caso nosotros tenemos 2 llaves una que se llama **test** y otra que se llama **nginx**  por lo tanto vamos a utilizar nuestra llave de nginx que es la que nos interesa 
+
+
+El path significa el nombre que va a tener una vez este montado en este directorio, asi que se llamara **default.conf**
+
+por que asi lo encontramos inicialmente en la configuraciony  lo vamos a mantener asi.
+
 
 
 

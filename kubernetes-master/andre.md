@@ -3068,28 +3068,94 @@ De estas sencilla manera es como podemos referenciar valores externos de nuestor
 dentro de nuestro pod.
 
 
-
-
-
-
-
-
-
 ### 112. ¿Que es un ConfigMap?
 
+Un configmap es otro objeto que podemos crear, actualizar, eliminar, ahora cual es la funcion?
 
+Para que se creo un configMap?
 
+Como creamos aplicaciones con Docker en un Dockerfile, y como aplicamos configuraciones en ese Dockerfile.
+
+Bueno, para entenderlo hablemos normalmente de cómo creamos aplicaciones con Docker en un Dockerfile y cómo aplicamos configuraciones en este Dockerfile.
+
+Imaginemos que queremos crear una aplicación de nginx muy sencilla Entonces aquí tendríamos nuestro from desde cualquier parte. Aquí tendríamos, por ejemplo, un copy de nuestro código hacia el root de nuestro web server. Más abajito, opcionalmente, podemos copiar la configuración de nginx. Por ejemplo, si queremos habilitar certificados SSL, si queremos cambiar el puerto, si queremos hacer algún tipo de proxy, cualquier configuración adicional tenemos que pasarla con un copy para que quede en la imagen final.
+
+Así las cosas, desplegamos la versión 1 de esta imagen. ¿Qué pasa si luego en el futuro yo quiero modificar esta configuración que copié al Dockerfile? Digamos que quiero cambiar el puerto, quiero agregar un alias, quiero cambiar la ruta de los logs, del document root, etcétera. Tendría entonces que llegar al archivo original donde le estoy haciendo el copy, hacer la modificación aquí, y luego reconstruir una nueva imagen y desplegarla con la versión número 2, ¿cierto? Así es como normalmente trabajamos con Docker, y así es como normalmente utilizamos la configuración, porque es una de las maneras para garantizar que va a ser consistente en el tiempo.
+
+Así que con Kubernetes podemos seguir haciéndolo así, no hay ningún problema, Pero Kubernetes nos ofrece un objeto que es el ConfigMap para manejar estas situaciones de una manera mucho más sencilla. Ahora vamos a ver qué es un ConfigMap. Un ConfigMap, como lo dije, es un objeto distinto a un pod. Entonces aquí tenemos un ConfigMap y aquí podemos tener un pod.
+
+Ahora, la idea de los ConfigMaps es separar las configuraciones y hacer más portable un pod. Por ejemplo, en este pod digamos que yo no hardcodeé ningún tipo de configuración de nginx, pero en mi ConfigMap estoy creando la configuración de nginx, toda la configuración normal, lo que utilizaría nginx. Y lo que hace el pod es sencillamente consumir este ConfigMap. Así yo puedo solamente llegar aquí, cambiar cualquier parámetro para que el pod lo tome sin necesidad de redesplegar una nueva versión de la aplicación.
 
 
 ### 113. ¿Como puede un Pod consumir un ConfigMap?
+
+Un ConfigMap es básicamente un objeto que vive en un namespace y que es llave-valor. Significa que aquí yo voy a colocar una llave que se va a llamar como yo quiera, en este caso podemos decir "nginx.conf", y aquí como valor yo puedo empezar a escribir la configuración de nginx o la configuración que yo quiero aplicar.
+ 
+En mi pod yo voy a referenciar a esta llave, entonces él va a decir: "Ok, yo quiero consumir la llave 'nginx.conf' del ConfigMap llamado 'configmap-x'", por ejemplo, y de esta manera es como se puede acceder.
+ 
+Cómo se crean los ConfigMaps
+ 
+Ahora, ¿estos ConfigMaps cómo se crean? Bueno, hay varias maneras:
+ 
+1. Desde un archivo: podemos tener nuestro archivo "nginx.conf" normalmente y podemos decirle a Kubernetes: "Oye Kubernetes, por favor crea un ConfigMap basado en el contenido de este archivo". Esa es una manera muy sencilla de hacerlo.
+ 
+2. Escribiendo un manifiesto de Kubernetes: donde definimos un objeto ConfigMap, y en este objeto escribimos la configuración de nginx en vez de cargarla de un archivo. Esta va a ser la forma que van a usar normalmente, porque nos da la habilidad de manipular el objeto ConfigMap, de cambiar las configuraciones y de hacerlo muchísimo más portable.
+ 
+Entonces, a este punto podemos crear un ConfigMap desde un archivo, o creando un manifiesto de Kubernetes en el que escribamos las configuraciones que queramos en este ConfigMap.
+ 
+Cómo un pod consume un ConfigMap
+ 
+Perfecto, ahora la pregunta es: ya sabemos cómo crear un ConfigMap, teóricamente ya sabemos cuál es su composición. Ahora, ¿un pod cómo es capaz de ver este ConfigMap? Bueno, hay dos opciones:
+ 
+Opción 1: Variables de entorno
+ 
+Lo que podemos hacer para que un pod vea el ConfigMap es decirle: "Oye pod, tú vas a cargar (le damos un nombre a la variable, digamos 'variable-x') y la variable-x va a ser igual a ConfigMap.llave", y esto nos va a entregar el valor.
+ 
+Digamos que creamos una llave que se llame "test" (recuerden que es llave-valor), la llave es "test" y el valor va a ser, por ejemplo, "hola". Así las cosas, vamos a decir entonces que la variable-x en el pod va a ser -o el valor de esta variable va a ser- lo que encontremos en el objeto "configmap-x" que debe tener un nombre en la llave "test". Así que colocamos esa configuración acá: "test como ConfigMap, llegamos a la llave test", y esto automáticamente va a cargar el valor dentro del pod en la variable-x.
+ 
+Si no es claro este punto, no se preocupen, lo vamos a ver más adelante a detalle; es solo para que tengan una idea.
+ 
+Opción 2: Volumen (archivo)
+ 
+La segunda forma de cargarla en un pod es con un archivo. Así que vamos a decir que la segunda forma aquí es con un volumen. Si ya utilizaron Docker antes, están relacionados con los volúmenes.
+ 
+Lo que vamos a hacer con el volumen es: en el pod vamos a montar una carpeta, por ejemplo en "/opt", y vamos a montar un archivo que por defecto tiene este nombre, pero podemos darle uno diferente. Le decimos, por ejemplo, aquí "config" -va a ser un archivo normal- y el contenido de este "config" va a ser el valor de esta llave dentro del ConfigMap.
+ 
+Resumen
+ 
+Así las cosas, quiero que tengan en mente cómo consumir los ConfigMaps en un pod: ya sabemos que lo podemos consumir con una variable de entorno, o montándolo en un volumen como un archivo normal.
 
 
 
 ### 114. Explora un Pod de Nginx y conoce cual sera el contenido de nuestro ConfigMap
 
+Bienvenidos a este vídeo donde vamos a crear nuestro primer ConfigMap. Antes de eso quiero mostrarles cuál es el contenido de nuestro ConfigMap.
+ 
+Explorando la configuración por defecto de nginx
+ 
+Si creamos un pod, como normalmente lo hacemos, e ingresamos a él a una shell interactiva, vamos a intentar ingresar. Aquí estamos creando un pod con la imagen de nginx, por lo tanto vamos a tener la configuración de nginx disponible. Recordemos que estas imágenes ya vienen con una configuración, por ejemplo: "/etc/nginx/conf.d/default.conf". Aquí podemos ver la configuración por defecto que viene en la imagen.
+ 
+Algo que quiero que tengan en cuenta es que esta configuración, esta "default", es la que está tomando obviamente este pod, porque es la configuración por default.
+ 
+Modificando la configuración manualmente (solo como ejemplo)
+ 
+Quiero que vean que si yo modifico este archivo dentro del contenedor -no debería hacerlo, porque si se elimina el pod mis cambios se van a perder, pero solamente para que lo vean- si yo cambio, por ejemplo, el puerto:
+ 
+Antes de hacerlo voy a guardar esto y voy a iniciar el servicio de nginx aquí, porque no estaba iniciado. Perfecto, ya tenemos nuestro servicio iniciado en el contenedor.
+ 
+Si vemos la IP del contenedor (recordemos que esto es accesible únicamente dentro del clúster, pero debido a que nuestra máquina es del clúster lo podemos ver), aquí lo vemos en el puerto 80. Perfecto.
+ 
+Ahora, si yo modifico el archivo del que estábamos hablando y le cambio el puerto al 8080, y luego lo guardo, si me voy a mi navegador y recargo, no voy a ver nada. Tengo que obviamente recargar el servicio de nginx, así que: "nginx -s reload", y aquí debería poder ver mi servicio en el puerto 8080. Perfecto.
+ 
+Conclusión
+ 
+Como se dan cuenta, este es el archivo de configuración que nginx está tomando por defecto, y este es el archivo de configuración que vamos a utilizar como ejemplo para crear nuestro ConfigMap y entender cómo funciona esto.
+
 
 
 ### 115. Crea un ConfigMap desde un archivo
+
+
 
 
 

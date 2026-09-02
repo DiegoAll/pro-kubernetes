@@ -2933,6 +2933,8 @@ Diferencia entre Readiness y el Liveness
 ## Section 16: ConfigMaps & Environment Variables - Inyecta datos en tus pods
 
 
+### 110. Crea tu primera variable de entorno
+
 Vamos a aprender a crear variables de en torno en los pods, utilizando manifiestos de kubernetes.
 
 kubectl apply -f env.yaml 
@@ -2977,7 +2979,137 @@ Estas variables de entorno son accesibles desde cualquier parte de este contened
 Estas variables estan disponibles globalmente en el contenedor.
 
 
+### 111. Captura  valores embebidos al Pod por medio de variables de entorno
 
+
+Vamos a inyectar valoresun poco mas reales y valores que nos pueden s er utiles, al momento de ejecutar nuestras aplicaciones 
+
+
+Se ve la definicion demuestro pod con respecto a la API de Kubernetes.
+
+    kubectl get pods envar-demo -o yaml
+
+
+envars
+nodo donde esta localizado
+status
+hostIP
+podIPs
+
+
+kubernetes ref environment variables
+
+    https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
+
+
+Como podemos extraer informacion y como la podemos colocar dentro del pod.
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+    name: dapi-envars-fieldref
+    spec:
+    containers:
+        - name: test-container
+        image: nginx:alpine
+        env:
+            - name: MY_NODE_NAME
+            valueFrom:
+                fieldRef:
+                fieldPath: spec.nodeName
+            - name: MY_POD_NAME
+            valueFrom:
+                fieldRef:
+                fieldPath: metadata.name
+            - name: MY_POD_NAMESPACE
+            valueFrom:
+                fieldRef:
+                fieldPath: metadata.namespace
+            - name: MY_POD_IP
+            valueFrom:
+                fieldRef:
+                fieldPath: status.podIP
+    restartPolicy: Never
+
+
+Veamos como se ven estas variables de entorno con valores dinamicos, estan siendo referenciados por unos campos, dentro del pod 
+
+    / # env
+    KUBERNETES_SERVICE_PORT=443
+    KUBERNETES_PORT=tcp://34.118.224.1:443
+    HOSTNAME=dapi-envars-fieldref
+    SHLVL=1
+    HOME=/root
+    PKG_RELEASE=1
+    MY_POD_NAMESPACE=default
+    DYNPKG_RELEASE=1
+    ACME_VERSION=0.4.1
+    MY_POD_IP=10.64.0.7
+    TERM=xterm
+    NGINX_VERSION=1.31.4
+    KUBERNETES_PORT_443_TCP_ADDR=34.118.224.1
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    NJS_VERSION=1.0.0
+    KUBERNETES_PORT_443_TCP_PORT=443
+    KUBERNETES_PORT_443_TCP_PROTO=tcp
+    NJS_RELEASE=1
+    MY_NODE_NAME=gke-diego-cluster-default-pool-290fda81-9zk5
+    KUBERNETES_SERVICE_PORT_HTTPS=443
+    KUBERNETES_PORT_443_TCP=tcp://34.118.224.1:443
+    KUBERNETES_SERVICE_HOST=34.118.224.1
+    PWD=/
+    MY_POD_NAME=dapi-envars-fieldref
+    / # echo $MY_NODE_NAME
+    gke-diego-cluster-default-pool-290fda81-9zk5
+    / # 
+
+
+De estas sencilla manera es como podemos referenciar valores externos de nuestor pod como el nombre, la ip, el estado, etc . Capturarlos y dejarlos disponibles como variables de entorno.
+dentro de nuestro pod.
+
+
+
+
+
+
+
+
+
+### 112. ¿Que es un ConfigMap?
+
+
+
+
+
+### 113. ¿Como puede un Pod consumir un ConfigMap?
+
+
+
+### 114. Explora un Pod de Nginx y conoce cual sera el contenido de nuestro ConfigMap
+
+
+
+### 115. Crea un ConfigMap desde un archivo
+
+
+
+### 116. Asocia el ConfigMap que creaste a un Volumen en un Pod
+
+
+
+### 117. Monta un ConfigMapcomo volumen sin especificar items
+
+
+### 118. Crea un ConfigMap nuevo para inyectarlo como una variable de entorno
+
+
+
+### 119. Configura tu pod para consumir el ConfigMap por medio de variables de entorno
+
+
+
+
+### 120. Valida que todas las Variables y los Mount funcionen bien.
 
 
 
@@ -2986,8 +3118,33 @@ Estas variables estan disponibles globalmente en el contenedor.
 ## Section 17: Secrets - Aprende a manejar data sensible en Kubernetes
 
 
+### 121. ¿Que es un Secret?
+
+
+
+### 122. Crea un secret desde un archivo plano
+
+
+### 123. ¿Que es base64?
+
+
+### 124. StringData vs Data 
+
+
+### 125. Tip. Nunca versiones un yaml con informacion sensitiva!
+
+
+### 126. Inyecta Secrets en tus Pods con Volumenes 
+
+
+### 127. Inyecta Secrets en tus pods con variables de entorno
+
+
 
 ## Section 18: Kubernetes Volumes - Entiende los conceptos detrás de la persistencia de datos
+
+### ¿?
+
 
 
 

@@ -3334,9 +3334,149 @@ El path significa el nombre que va a tener una vez este montado en este director
 por que asi lo encontramos inicialmente en la configuraciony  lo vamos a mantener asi.
 
 
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+    name: nginx-config
+    labels:
+        app: front
+    data:
+    test: hola
+    nginx: |
+        server {
+            listen       8080;
+            server_name  localhost;
+
+            location / {
+                root   /usr/share/nginx/html;
+                index  index.html index.htm;
+            }
+
+            error_page   500 502 503 504  /50x.html;
+            location = /50x.html {
+                root   /usr/share/nginx/html;
+            }
+
+        }
+    
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+    name: deployment-test
+    labels:
+        app: front
+    spec:
+    replicas: 1
+    selector:
+        matchLabels:
+        app: front
+    template:
+        metadata:
+        labels:
+            app: front
+        spec:
+        containers:
+            - name: nginx
+            image: nginx:alpine
+            volumeMounts:
+                - name: nginx-vol
+                mountPath: /etc/nginx/conf.d/
+        volumes:
+            - name: nginx-vol
+            configMap:
+                name: special-config
+                items:
+                - key: nginx
+                    path: default.conf
 
 
 ### 117. Monta un ConfigMapcomo volumen sin especificar items
+
+¿Que pasaria si nosotros no definimos Items?
+
+Recordemos que nuestro configMap tiene 2 llaves test y un nginx.
+
+Que pasaria si nosotros no indicamos cual de estas 2 llaves queremos montar?
+
+IS eliminamos esto le estamos diciendo a kubernetes:
+
+            items:
+              - key: nginx
+                path: default.conf
+
+Oye kubernetes tu vas a montar en la carpeta conf.d
+todas lñas lalves que encuenstres en el configMap nginx-config
+
+Es decir que debajo de esta carpeta: /etc/nginx/conf.d/
+
+Deberiamos esperar un archivo llamado test cuyop contenido es hola, y un archivo llamado nginx cuyo contenido es el value que trae. ASi que vamos a probarlo.
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/configmaps$ kubectl apply -f cm-nginx.yaml
+    Warning: resource configmaps/nginx-config is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+    configmap/nginx-config configured
+    deployment.apps/deployment-test created
+
+El mensaje Warning: resource configmaps/nginx-config is missing the...
+Es solo un aviso informativo (warning), no un error. Significa que el ConfigMap nginx-config ya existía en tu clúster y fue creado previamente de forma imperativa (usando un comando como kubectl create configmap ... sin la bandera --save-config).
+Al ejecutar kubectl apply -f, Kubernetes detecta que el recurso no fue rastreado de manera declarativa con el anotador de configuración previo, pero lo resuelve parchando el objeto automáticamente y actualizándolo (configmap/nginx-config configured).
+
+3. Creación del Deployment
+La última parte confirma que tus recursos se procesaron correctamente:
+
+ConfigMap: Se actualizó con la nueva definición (configured).
+
+Deployment: Se creó desde cero (deployment-test created).
+
+Puedes verificar que tu Deployment y Pods se levantaron corriendo:
+
+
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/configmaps$ kubectl get pods
+NAME                               READY   STATUS             RESTARTS          AGE
+deployment-test-689b869fc8-s7wlp   1/1     Running            0                 111s
+
+
+Encontramos un archivo llamado nginx con el contenido que esperabamos y un archivo llamado test con lo que teniamos pensado.
+
+    / # ls -lha /etc/nginx/conf.d/
+    total 12K    
+    drwxrwxrwx    3 root     root        4.0K Sep  2 06:12 .
+    drwxr-xr-x    3 root     root        4.0K Aug 19 19:08 ..
+    drwxr-xr-x    2 root     root        4.0K Sep  2 06:12 ..2026_09_02_06_12_27.2733481959
+    lrwxrwxrwx    1 root     root          32 Sep  2 06:12 ..data -> ..2026_09_02_06_12_27.2733481959
+    lrwxrwxrwx    1 root     root          12 Sep  2 06:12 nginx -> ..data/nginx
+    lrwxrwxrwx    1 root     root          17 Sep  2 06:12 nginx.conf -> ..data/nginx.conf
+    lrwxrwxrwx    1 root     root          11 Sep  2 06:12 test -> ..data/test
+    / # cat /etc/nginx/conf.d/test 
+    / # cat /etc/nginx/conf.d/nginx
+    server {
+        listen       8080;
+        server_name  localhost;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+    }
+    / # 
+
+
+Con este video se espera comprender la importancia de definir los items aca:
+
+            items:
+              - key: nginx
+                path: default.conf
+
+y de colocar los nombres que usted prefieran para qeu se apliquen dentro del pod.
+
+
 
 
 ### 118. Crea un ConfigMap nuevo para inyectarlo como una variable de entorno

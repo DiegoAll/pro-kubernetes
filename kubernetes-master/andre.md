@@ -3155,6 +3155,135 @@ Como se dan cuenta, este es el archivo de configuración que nginx está tomando
 
 ### 115. Crea un ConfigMap desde un archivo
 
+    kubectl run --rm -it podtest3 --image=nginx:alpine -- sh
+
+
+cat /etc/nginx/conf.d/default.conf
+
+
+Vamos a tomar su contenido para crear un ConfigMap con el y ver como funcionan los ConfigMaps.
+
+Se copia el contenido del archivo, nos salimos del pod.
+
+    server {
+        listen       80;
+        server_name  localhost;
+
+        #access_log  /var/log/nginx/host.access.log  main;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+        # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+        #
+        #location ~ \.php$ {
+        #    proxy_pass   http://127.0.0.1;
+        #}
+
+        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+        #
+        #location ~ \.php$ {
+        #    root           html;
+        #    fastcgi_pass   127.0.0.1:9000;
+        #    fastcgi_index  index.php;
+        #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+        #    include        fastcgi_params;
+        #}
+
+        # deny access to .htaccess files, if Apache's document root
+        # concurs with nginx's one
+        #
+        #location ~ /\.ht {
+        #    deny  all;
+        #}
+    }
+
+
+Se eliminan los comentarios, se ve un poquito mas limpio. Se crea el archivo nginx.conf
+
+Vamos a crear un configmap con esto. Se va a crear usando la linea de comandos.
+
+    kubectl create configmap nginx-config --from-file=configmaps-examples/nginx.conf
+
+    kubectl get cm
+
+    kubectl describe configmaps nginx-config
+
+    Name:         nginx-config
+    Namespace:    default
+    Labels:       <none>
+    Annotations:  <none>
+
+    Data
+    ====
+    nginx.conf:
+    ----
+    server {
+        listen       80;
+        server_name  localhost;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+    }
+
+
+    BinaryData
+    ====
+
+    Events:  <none>
+
+
+Este seria el nombre de la llave:     nginx.conf:
+
+Por que por defecto va a tomar el nombre del archivo del que fue creado.
+
+Y como valor todo el resto de la configuracion:
+
+
+Y asi es como luce un configmap, nada del otro mundo.
+
+Solo es un objeto que contiene data y esa data esta en formato llave valor.
+
+
+    touch configmaps-examples/index.html
+
+En kubernets podemos crtear un configmap con el contenido de varios archivos,  
+si pasamos la ruta de la carpeta donde estan esos archivos, 
+
+Asi que si intentamso crear un configmap nuevo, y le damos la ruta de la carpeta por defecto va a incluir todos los archivos que encuentre dentro de esa carpeta.
+
+    kubectl create configmap nginx-config1 --from-file=configmaps-examples
+
+Y lo que deberia pasar aca es que este configmap deberia tener el contenido del index, y de nginx.
+
+Y si validamos tenemos entonces 2 llaves,
+
+llave1 = index.html
+llave2 = nginx.conf
+
+y sus respectivos valores.
+
+esta es la forma como se crea un configmap desde la linea de comandos.
+recordemos que finalmente un configmap es clave-valor.
 
 
 

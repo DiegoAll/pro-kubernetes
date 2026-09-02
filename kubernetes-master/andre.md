@@ -3477,9 +3477,47 @@ Con este video se espera comprender la importancia de definir los items aca:
 y de colocar los nombres que usted prefieran para qeu se apliquen dentro del pod.
 
 
-
-
 ### 118. Crea un ConfigMap nuevo para inyectarlo como una variable de entorno
+
+Vamos a empezar a crear variables de entorno,  en nuestro manifeisto de yaml para empezar a aplicar ejemplos reales. 
+Vamos a irnos creamos un archivo nuevo, cm-nginx-vol.yaml y a partir de este se crea: cm-nginx-env.yaml 
+
+
+Es conveniente crear otro ConfigMap, en cm-nginx-env.yaml
+
+Creemos llaves que nos puedans ervir como variables de entorno. Ej db_host, db_user
+
+Estas 2 llaves nos van a servir para referenciarlas como variables de entorno dentro, de nuestro contenedor en el pod que estamos creando.
+
+    db_host: dev.host.local
+    db_user: dev_user
+
+para validar que podemos combinar el uso de variables de entorno con archivos, vamos a 
+crear otra llave en nuestro configmap que se llame script, y esto va a ser un archivo.  
+
+    script: |
+
+Recordar que esta definicion de tomar esto como variables de entorno,y esto como un archivo lo vamos a hacer aca. " al nivel del pod" por que al nivel del configMap esto solamente es una llave, y esto es un valor, al configMap no le interesa en realidad que coloquemos, el solo sabe que espera una llave y un valor.
+
+Nosotros en el pod en la especificacion del template somos los responsable de utilizar estos valores, segun nuestra conveniencia. ASi que en el script vamos a decir por ejenplo :
+
+
+echo DB host es $DB_HOST y DB user es $DB_USER y esto lo podenmos redirigir a 
+
+esta ruta es el DOcumentROot de nginx, y aca la estamos definiendo
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+
+esto viene por defecto y basicanmente es la ruta donde la cual nginx sirve sus archivos, 
+
+ASi que aca vamos a crear un archivo sencillo con esto para ver si efectivament, podemos 
+tomar estos valores, e inyectarlos en estas variables de entorno.
+
+Estas 2 llaves nos van a servir en nuestro ejemplo como varables de entorno, y esta llave nos va a servir como un archivo, o un scrit que vamos a correr para validar que esto funcuone.
 
 
 

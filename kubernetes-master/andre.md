@@ -3679,6 +3679,75 @@ Y decimos que script va a tener el valor de configMap que se llama vars y va a u
 ### 120. Valida que todas las Variables y los Mount funcionen bien.
 
 
+Donde vamos a aplicar esta configuracion y ver si todo funciona como deberia funcionar.
+
+Esto debe crear 2 configMaps y un deployment. y lo que va a hacer es montar desde el configMap1 la configuracion de nginx. y desde el configMap2 algunas variables de entorno y un pequeño script.
+
+kubectl apply -f cm-nginx-env.yaml
+
+y se tiene el pod creado:
+
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/configmaps$ kubectl get pods
+NAME                               READY   STATUS             RESTARTS          AGE
+
+deployment-test-6d5f7f8bc7-54vgr   1/1     Running            0                 19s
+
+> Cuando usas Minikube en local (especialmente en Linux con el driver de Docker), la red del cluster corre directamente sobre la interfaz virtual Docker de la máquina host. Por eso el profesor puede meter esa IP privada (172.17.x.x) directamente en la barra de direcciones de su navegador local: su laptop y los Pods comparten la misma tabla de ruteo local.
+
+
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/configmaps$ kubectl apply -f nginx-public-service.yaml
+service/nginx-public-service created
+diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/configmaps$ kubectl get svc -w
+NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubernetes             ClusterIP      34.118.224.1     <none>        443/TCP        4d11h
+nginx-public-service   LoadBalancer   34.118.236.234   <pending>     80:31753/TCP   37s
+nginx-public-service   LoadBalancer   34.118.236.234   <pending>     80:31753/TCP   39s
+nginx-public-service   LoadBalancer   34.118.236.234   35.185.10.43   80:31753/TCP   39s
+
+
+Se accede desde el navegador ala IP externa http://35.185.10.43/ con http.
+
+    > Welcome to nginx!
+    If you see this page, nginx is successfully installed and working. Further configuration is required for the web server, reverse proxy, API gateway, load balancer, content cache, or other features.
+    For online documentation and support please refer to nginx.org.
+    To engage with the community please visit community.nginx.org.
+    For enterprise grade support, professional services, additional security features and capabilities please refer to f5.com/nginx.
+    Thank you for using nginx
+
+
+**(Solo recuerda eliminar el Service de tipo LoadBalancer al terminar la práctica con kubectl delete svc nginx-public-service para que GCP no te genere cargos por el balanceador activo).**
+
+Validemos si las variuables de entorno que montamso existen.
+
+    / # env
+    KUBERNETES_SERVICE_PORT=443
+    KUBERNETES_PORT=tcp://34.118.224.1:443
+    HOSTNAME=deployment-test-6d5f7f8bc7-54vgr
+    SHLVL=1
+    HOME=/root
+    PKG_RELEASE=1
+    DYNPKG_RELEASE=1
+    ACME_VERSION=0.4.1
+    TERM=xterm
+    NGINX_VERSION=1.31.4
+    KUBERNETES_PORT_443_TCP_ADDR=34.118.224.1
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    NJS_VERSION=1.0.0
+    KUBERNETES_PORT_443_TCP_PORT=443
+    KUBERNETES_PORT_443_TCP_PROTO=tcp
+    NJS_RELEASE=1
+    KUBERNETES_SERVICE_PORT_HTTPS=443
+    KUBERNETES_PORT_443_TCP=tcp://34.118.224.1:443
+    KUBERNETES_SERVICE_HOST=34.118.224.1
+    PWD=/
+    DB_HOST=dev.host.local
+    DB_USER=dev_user
+
+/ # ls -lha /opt/script.sh 
+lrwxrwxrwx    1 root     root          16 Sep  2 19:18 /opt/script.sh -> ..data/script.sh
+/ # 
+
+El valor de tas variables esta vinienod desde los configmaps.
 
 
 
@@ -3689,6 +3758,33 @@ Y decimos que script va a tener el valor de configMap que se llama vars y va a u
 
 ### 121. ¿Que es un Secret?
 
+¿Qué es un Secret?
+ 
+Bueno, primero que todo, ¿qué es un Secret? En Kubernetes, un Secret es un objeto muy parecido a un ConfigMap. Entonces tenemos aquí un Secret y tenemos aquí un ConfigMap.
+ 
+Un Secret nos ayuda a guardar data sensitiva, es decir, información o datos que no deberían ser visibles para todo el mundo, como tokens, contraseñas, etcétera.
+ 
+En un ConfigMap, por el contrario, podemos guardar data que no sea sensible, como propiedades de algo, nombres de usuarios, quizá hosts -depende mucho también de las políticas del lugar donde trabajen-.
+ 
+Pero en esencia: en un Secret guardamos data que es sensitiva, y en un ConfigMap guardamos data que es "non-sensitive" o no sensitiva.
+ 
+Teniendo esto en mente, la funcionalidad de un Secret es muy similar a la de un ConfigMap -de hecho es casi la misma-, solo que la diferencia radica en que deberíamos usar los Secrets para manejar la data sensible, y deberíamos utilizar los ConfigMaps para la data que no sea sensitiva.
+ 
+Por qué usar Secrets
+ 
+Perfecto, hablemos entonces de los secretos en sí. Ya vimos que un Secret nos ayuda a guardar información que puede ser sensitiva. Esta información la podríamos colocar dentro de la imagen de Docker que creemos, pero, como lo vimos con los ConfigMaps, si definimos las configuraciones en un ConfigMap es mucho más fácil de manejar que colocándolas en una imagen de Docker.
+ 
+Lo mismo sucede con los Secrets: podríamos bien colocarlos en la imagen de Docker, pero sería un poco más difícil manejarlos. Kubernetes nos ofrece este objeto de Secrets que está totalmente aislado del pod. Entonces, sin necesidad de modificar el pod, nosotros podemos modificar el Secret y este cambio se va a ver automáticamente reflejado en el pod, muy parecido al ConfigMap.
+ 
+Así que esta es una de las ideas del por qué usar Secrets: porque nos permite separar la configuración del pod y es muchísimo más fácil de configurar.
+ 
+Cómo acceder a un Secret desde un pod
+ 
+Ahora, ¿cómo podemos acceder a un Secret desde un pod? Bueno, muy similar a los ConfigMaps: tenemos nuestro Secret aquí, nuestro pod aquí, y podemos montarlo como una variable de entorno en nuestro pod, o también podemos montarlo como un volumen.
+ 
+Por esto les mencioné que un Secret es muy, muy similar a un ConfigMap. La diferencia radica en qué tipo de información colocas en un objeto y qué tipo de información colocamos en el otro.
+ 
+Vamos entonces a la terminal para entender a fondo cómo funcionan los Secrets y encontrar un par de diferencias en comparación con los ConfigMaps.
 
 
 ### 122. Crea un secret desde un archivo plano

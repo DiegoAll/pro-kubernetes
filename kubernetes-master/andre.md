@@ -3789,6 +3789,58 @@ Vamos entonces a la terminal para entender a fondo cómo funcionan los Secrets y
 
 ### 122. Crea un secret desde un archivo plano
 
+Hay varios tipos de secretos, por ahro0a se va a utilizar el secreto generico que es el que mas se utiliza, y ahora se le pasa el nombre dels ecreto que se va a manipular en el futuro, 
+
+    kubectl create secret generic mysecret --from-file=./secret-files/test.txt
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl create secret generic mysecret --from-file=./secret-files/test.txt
+    secret/mysecret created
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl get secret
+    NAME       TYPE     DATA   AGE
+    mysecret   Opaque   1      6s
+
+
+Solamente vemos el nombre del archivo
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl describe secrets mysecret
+    Name:         mysecret
+    Namespace:    default
+    Labels:       <none>
+    Annotations:  <none>
+
+    Type:  Opaque
+
+    Data
+    ====
+    test.txt:  27 bytes
+
+El describe no nos esta mostrando el contenido del secreto en este caso, solo nos muestra el nombre de la llave.
+
+Como podemos hacer entonces para ver todo el contenido? y por que es que no podemos ver el contenido en el describe. Por trazones de seguridad, kubernetes no nos va a mostrar el contenido de los secretos, 
+
+la unica manera en la que podemos tener parcialmente, es haciendo el comando:
+
+    kubectl get secrets mysecret -o yaml
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl get secrets mysecret -o yaml
+    apiVersion: v1
+    data:
+    test.txt: c2VjcmV0PWhvbGEKc2VjcmV0Mj1hZGlvcwoK
+    kind: Secret
+    metadata:
+    creationTimestamp: "2026-09-03T19:41:17Z"
+    name: mysecret
+    namespace: default
+    resourceVersion: "1788464477664575008"
+    uid: 7d373a26-88a6-43e9-8709-3f1827dab07a
+    type: Opaque
+
+Se puede ver la data, la llave y el valor
+
+
+
+
 
 ### 123. ¿Que es base64?
 

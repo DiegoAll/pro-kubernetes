@@ -3868,6 +3868,65 @@ tecnicas para no colocar data sensitiva en nuestros secretos, pero vamos a manej
 
 ### 124. StringData vs Data 
 
+    apiVersion: v1
+    kind: Secret
+    metadata:
+    name: mysecret
+    type: Opaque
+    data:
+    username: YWRtaW4=
+    password: MWYyZDFlMmU2N2Rm
+
+Que es la data en un secreto? es basicmanete un diccionario.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl apply -f secret-data.yaml 
+    secret/mysecret created
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl get secret mysecret -o yaml
+    apiVersion: v1
+    data:
+    password: MWYyZDFlMmU2N2Rm
+    username: YWRtaW4=
+    kind: Secret
+    metadata:
+    annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"password":"MWYyZDFlMmU2N2Rm","username":"YWRtaW4="},"kind":"Secret","metadata":{"annotations":{},"name":"mysecret","namespace":"default"},"type":"Opaque"}
+    creationTimestamp: "2026-09-03T20:15:46Z"
+    name: mysecret
+    namespace: default
+    resourceVersion: "1788466546418415008"
+    uid: 5ef0736e-2afd-4a8f-b5a2-d4d3586c4404
+    type: Opaque
+
+
+
+Todo esta en Base64, esto no es nada seguro.
+
+Sino que queremos hacer elt rabajo de hacerlo en Base64 hay un campo muy bueno que se llama StringData,
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl get secrets mysecret2 -o yaml
+    apiVersion: v1
+    data:
+    password: cGFzc3dvcmR0ZXN0
+    username: dXNlcnRlc3Q=
+    kind: Secret
+    metadata:
+    annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Secret","metadata":{"annotations":{},"name":"mysecret2","namespace":"default"},"stringData":{"password":"passwordtest","username":"usertest"},"type":"Opaque"}
+    creationTimestamp: "2026-09-03T20:22:02Z"
+    name: mysecret2
+    namespace: default
+    resourceVersion: "1788466922088991000"
+    uid: c90a92a3-8e19-4290-b1cf-2a2e1907fdbd
+    type: Opaque
+
+
+Lo que hace Kubernetes es tomar los valroes en stringData y encodearlos en base64.
+
+Si se maneja data sensitiva no se podria guardar en git.
 
 ### 125. Tip. Nunca versiones un yaml con informacion sensitiva!
 

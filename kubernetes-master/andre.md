@@ -3928,7 +3928,44 @@ Lo que hace Kubernetes es tomar los valroes en stringData y encodearlos en base6
 
 Si se maneja data sensitiva no se podria guardar en git.
 
+
+
+
 ### 125. Tip. Nunca versiones un yaml con informacion sensitiva!
+
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecret
+type: Opaque
+data:
+  username: $USER
+  password: $PASSWORD
+
+
+En git nunca coloquen tokens ni contraseñas para versionar.
+
+Se pueden seguir utilizando los placeholders y utilizar este archivo en git.
+
+
+Como persona encargada de desploegar se deberia ejecutar un poas adicional, 
+
+
+Se usara envsubst
+
+    envsubst < secure.yaml > tmp.yaml
+
+
+    kubectl apply -f tmp.yaml
+
+
+Los placeholders son iunformacion falsa, o puntos de entrada para ser reemplzados, y luego con una herramienta los reemplazamos y aplciamos el resutlado con un temporal para desploegar.
+
+Con esto garantizamos que no estamos versionando ninguna informacion que pueda ser sensible.
+
+Se garantiza que la infomacion no esta en GitHub y para obtener la informacion de los secretops tendrian que accdeder directamente a nuestro cluster. Entrar y decodear el secret
+
 
 
 ### 126. Inyecta Secrets en tus Pods con Volumenes 

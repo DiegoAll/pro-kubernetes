@@ -3840,9 +3840,30 @@ Se puede ver la data, la llave y el valor
 
 
 
-
-
 ### 123. ¿Que es base64?
+
+Llave:
+
+  test.txt: c2VjcmV0PWhvbGEKc2VjcmV0Mj1hZGlvcwoK
+
+En kubernetes los secretos se encodean con Base64, 
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ echo hola | base64
+    aG9sYQo=
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ echo aG9sYQo= | base64 --decode
+    hola
+
+Asi que esto mismo deberia aplicar para este valro del secret.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ echo c2VjcmV0PWhvbGEKc2VjcmV0Mj1hZGlvcwoK | base64 --decode
+    secret=hola
+    secret2=adios
+
+Base64 no es un tipo de escripcion  es un tipo de encoding.
+
+tecnicas para no colocar data sensitiva en nuestros secretos, pero vamos a manejar la data sensitiva desde los secretos.
 
 
 ### 124. StringData vs Data 

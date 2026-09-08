@@ -3964,14 +3964,112 @@ Los placeholders son iunformacion falsa, o puntos de entrada para ser reemplzado
 
 Con esto garantizamos que no estamos versionando ninguna informacion que pueda ser sensible.
 
-Se garantiza que la infomacion no esta en GitHub y para obtener la informacion de los secretops tendrian que accdeder directamente a nuestro cluster. Entrar y decodear el secret
-
+Se garantiza que la infomacion no esta en GitHub y para obtener la informacion de los secretops tendrian que accdeder directamente a nuestro cluster. Entrar y decodear el secret.
 
 
 ### 126. Inyecta Secrets en tus Pods con Volumenes 
 
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl delete secret mysecret mysecret2
+    secret "mysecret" deleted
+    secret "mysecret2" deleted
+
+
+Podemos montar los secretos como volumenes, o como variables de entorno.
+
+Se crea el secreto ene l mismo manifiesto por temas de orden.
+
+Sino colocamos los items lo que va a psar es que las llaves del secreto, se van a crear debajo de /opt
+
+Es decir si no colocamos los items, se va a crear un archivo en /opt/username con el contenido admin,  y se va a crear otro archivo con el contenido /opt/password con el contenido password 
+
+    volumes:
+    - name: test
+        secret:
+        secretName: secret1
+        items:
+        - key: username
+            path: my-group/my-username
+
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl apply -f pod-vol-secret.yaml
+    secret/secret1 created
+    pod/mypod configured
+
+Ahora podemos ingresar a nuestor pod y ver como se monto.
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl exec -it  mypod -- sh
+    / # ls -lha /opt/
+    total 4K     
+    drwxrwxrwt    3 root     root         120 Sep  8 20:48 .
+    drwxr-xr-x    1 root     root        4.0K Sep  8 20:48 ..
+    drwxr-xr-x    2 root     root          80 Sep  8 20:48 ..2026_09_08_20_48_07.3446632661
+    lrwxrwxrwx    1 root     root          32 Sep  8 20:48 ..data -> ..2026_09_08_20_48_07.3446632661
+    lrwxrwxrwx    1 root     root          15 Sep  8 20:48 password -> ..data/password
+    lrwxrwxrwx    1 root     root          15 Sep  8 20:48 username -> ..data/username
+
+
+**IMPORTANTE**: Si no especificamos archivos se van a crear archivos con los nombres de las llaves.
+
+
+¿Pero que pasa si en el punto de montaje queremos cambiarle los nombres?
+
+
+Ahi es donde entran los items que teniamos por aca.
+
+
+spec:
+  containers:
+  - name: mypod
+    image: nginx:alpine
+    volumeMounts:
+    - name: test
+      mountPath: "/opt"
+      readOnly: true
+  volumes:
+  - name: test
+    secret:
+      secretName: secret1
+      items:
+      - key: username
+        path: user.txt
+      - key: password
+        path: password.txt
+
+
+Esto se va a combinar con este mountpath: /opt
+
+
+Esto en caso de que queramos cambiar el punto de montaje, pero el contenido deberia ser el mismo.
+
+
+**"Un pod no se puede eliminar el mismo, por lo tanto tenemos que eliminarlo"**
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl apply -f pod-vol-secret.yaml
+    secret/secret1 configured
+    pod/mypod created
+
+
+    diegoall@p3rseus:~/courses/pro-kubernetes/kubernetes-master/secrets$ kubectl exec -it mypod -- sh
+    / # ls -lha /opt/
+    total 4K     
+    drwxrwxrwt    3 root     root         120 Sep  8 20:55 .
+    drwxr-xr-x    1 root     root        4.0K Sep  8 20:55 ..
+    drwxr-xr-x    2 root     root          80 Sep  8 20:55 ..2026_09_08_20_55_06.1376171053
+    lrwxrwxrwx    1 root     root          32 Sep  8 20:55 ..data -> ..2026_09_08_20_55_06.1376171053
+    lrwxrwxrwx    1 root     root          19 Sep  8 20:55 password.txt -> ..data/password.txt
+    lrwxrwxrwx    1 root     root          15 Sep  8 20:55 user.txt -> ..data/user.txt
+
+
+
+
 
 ### 127. Inyecta Secrets en tus pods con variables de entorno
+
+
+
+
 
 
 
